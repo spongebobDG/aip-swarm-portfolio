@@ -28,10 +28,12 @@ ROS2 기반 산업감시로봇 관제, 센서 연동, 서브차량 제어 흐름
 
 ![AIP dashboard demo](docs/videos/dashboard_demo.gif)
 
-최근 확인: 2026-07-21, `codex/robot-sw-portfolio` 브랜치에서 Docker sim 재빌드/기동, dashboard HTML 응답, `/fleet/status` 3대 healthy 상태, `aip_fleet_sim` 26 tests 통과를 확인했습니다. 세부 로그와 현재 PC의 WSL 접속 제한은 [docs/TEST_AND_LIMITATIONS.md](docs/TEST_AND_LIMITATIONS.md)에 정리했습니다.
+최근 확인: 2026-07-22, 면접용 `main` 기준 Docker sim 재빌드/기동, dashboard HTML 응답, `/fleet/status` 3대 healthy 상태와 supervisor/simulation 총 56 tests 통과를 확인했습니다. 세부 로그와 현재 PC의 WSL 접속 제한은 [docs/TEST_AND_LIMITATIONS.md](docs/TEST_AND_LIMITATIONS.md)에 정리했습니다.
 
 | 항목 | 링크 또는 위치 | 상태 |
 |---|---|---|
+| 순찰 영상 (5:00) | [aip_patrol.mp4](docs/videos/aip_patrol.mp4) | Git LFS 원본 |
+| 프로젝트 종합 영상 (4:44) | [aip_project_overview.mp4](docs/videos/aip_project_overview.mp4) | Git LFS 원본 |
 | 웹관제 캡처 | [docs/images/dashboard_overview_wide.png](docs/images/dashboard_overview_wide.png) | 확인됨 |
 | 웹관제 GIF | [docs/videos/dashboard_demo.gif](docs/videos/dashboard_demo.gif) | 확인됨 |
 | 포트폴리오 요약 | [PORTFOLIO_KO.md](PORTFOLIO_KO.md) | 확인됨 |
@@ -345,7 +347,7 @@ ros2 launch aip_fleet_real custom_vehicle.launch.py drivers_ready:=true
 - Docker sim fresh build/run 로그를 제출 전 다시 남기기
 - 실차 기준 `FleetHeartbeat` 계약과 차량별 heartbeat 발행 상태 재확인
 - aip3 STS3215 드라이버 구현/검증 상태 정리
-- 웹관제 Demo 이미지와 영상 링크를 README에 연결
+- 영상별 주요 구간 타임스탬프와 면접 설명용 자막 보강
 - Vision Camera Integration의 실제 장착 차량, FPS, 캘리브레이션 상태 명확화
 - E-Stop latch와 `twist_mux` 우선순위 체인을 실차에서 반복 검증
 - 완전 군집 주행은 독립 위치추정, TF 안정화, 장시간 순찰 검증 이후 별도 개선 항목으로 진행
