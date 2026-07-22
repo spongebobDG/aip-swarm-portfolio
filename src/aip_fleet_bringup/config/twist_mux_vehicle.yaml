@@ -1,0 +1,37 @@
+# twist_mux config for one fleet vehicle.
+# Loaded with PushRosNamespace(vehicle_id) so relative topic names resolve
+# to /<vehicle_ns>/topic automatically.
+#
+# Priority chain (higher number wins):
+#   estop_lock lock (90) — supervisor ESTOP latch; blocks ALL motion when True
+#   central          (80) — supervisor CMD_MANUAL / operator override_cmd_vel
+#   fleet_coord      (50) — aip_fleet_coordinator convoy cmd (T6, future)
+#   stuck_escape     (15) — 고착 감지 탈출 (costmap 무시 강제 후진)
+#   autonomy         (10) — vehicle-local autonomy planner
+
+/**:
+  ros__parameters:
+    topics:
+      central:
+        topic: override_cmd_vel
+        timeout: 0.5
+        priority: 80
+      fleet_coord:
+        topic: coord_cmd_vel
+        timeout: 0.5
+        priority: 50
+      stuck_escape:
+        topic: stuck_escape_cmd_vel
+        timeout: 0.3
+        priority: 15
+      autonomy:
+        topic: autonomy_cmd_vel
+        timeout: 0.5
+        priority: 10
+    # locks:
+    #   estop_lock:
+    #     topic: estop_lock
+    #     timeout: 0.5
+    #     priority: 90
+    # Phase-2 시뮬에서는 supervisor 미실행 → estop_lock 발행자 없음 → 항상 locked 상태 됨.
+    # 실제 하드웨어 통합 시 supervisor_node가 estop_lock을 관리하면 주석 해제.

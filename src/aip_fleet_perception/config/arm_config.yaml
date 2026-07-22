@@ -1,0 +1,76 @@
+# arm_config.yaml — 서보암 설정 (설계 변경 시 이 파일만 수정)
+#
+# 코드(arm_scan_node.py)는 이 파일을 읽어 동작하므로
+# 관절 수·이름·자세가 바뀌어도 Python 코드 수정 불필요.
+#
+# 각도 단위: radian
+# 시간 단위: second
+
+arm:
+  # ── 관절 정의 ────────────────────────────────────────────────────────────
+  # 설계 변경 시 joint_names 리스트만 교체
+  # 3축으로 변경: [arm_base_joint, arm_shoulder_joint, arm_wrist_joint]
+  joint_names:
+    - arm_base_joint       # 베이스 회전 (yaw)
+    - arm_shoulder_joint   # 숄더 (pitch)
+    - arm_elbow_joint      # 엘보 (pitch)
+    - arm_wrist_joint      # 리스트 (pitch)
+
+  # 관절 소프트 리밋 (URDF 하드 리밋과 별개로 운용 범위 제한)
+  joint_limits:
+    arm_base_joint:     [-3.14, 3.14]
+    arm_shoulder_joint: [-1.57, 1.57]
+    arm_elbow_joint:    [-2.09, 2.09]
+    arm_wrist_joint:    [-1.57, 1.57]
+
+  # ── 사전 정의 자세 (radian, joint_names 순서와 일치) ────────────────────
+  # 자세 추가/삭제/수정 → scan_sequence 에서 이름으로 참조
+  poses:
+    stow:        [ 0.00, -1.57, -1.57,  0.00]  # 수납(접기) — 대시보드 stow[90,0,0,90] 정합
+    forward:     [ 0.00, -0.87, -0.87,  0.00]  # 전방 스캔 = 홈 자세 [90,40,40,90]
+    left:        [ 1.57, -0.87, -0.87,  0.00]  # 좌측 스캔 — 숄더·엘보 홈 고정, base만 sweep
+    right:       [-1.57, -0.87, -0.87,  0.00]  # 우측 스캔 — 숄더·엘보 홈 고정, base만 sweep
+    up:          [ 0.00,  0.80,  0.00,  0.00]  # 상방 스캔
+    low_forward: [ 0.00,  0.10,  0.20,  0.00]  # 저자세 전방 (좁은 공간)
+
+  # ── 스캔 시퀀스 ──────────────────────────────────────────────────────────
+  # 순찰 중 정지 후 실행할 자세 순서 (poses 에 정의된 이름만 사용 가능)
+  scan_sequence: [forward, left, right]
+
+  # 각 자세에서 센서 데이터 수집 대기 시간 (s)
+  dwell_time_s: 2.0
+
+  # 자세 간 이동 시간 (s) — 실제 서보 속도에 맞게 조정
+  move_duration_s: 1.5
+
+  # 스캔 완료 후 stow 복귀 여부
+  return_to_stow: true
+
+# ── 센서 마운트 ────────────────────────────────────────────────────────────
+# 엔드이펙터 TF 프레임 이름 — 설계 변경 시 여기만 수정
+sensor_mount:
+  frame_id: sensor_mount_link   # arm 끝단 TF 프레임
+  # 이 프레임의 위치가 map_position 계산에 사용됨
+
+# ── 제어 인터페이스 ────────────────────────────────────────────────────────
+# controller_type: servo       → /{vid}/servo_cmd (UInt8MultiArray, deg 0~180)
+#                                 ESP32 PWM(MG996R×4) 직접 구동. 실차 aip1 기본.
+# controller_type: trajectory  → JointTrajectoryAction (ros2_control 표준)
+# controller_type: position    → 개별 관절 위치 명령 Float64 (단순 드라이버)
+# 드라이버 교체 시 이 값만 변경 (코드 분기 처리됨)
+control:
+  controller_type: servo
+  action_name: arm_controller/follow_joint_trajectory
+  # position 모드일 때: 각 관절별 topic prefix
+  position_topic_prefix: arm_joint_cmd
+
+  # ── servo 모드 캘리브레이션 (관절 rad → MG996R 서보 deg 0~180) ─────────────
+  # servo_deg = clamp( neutral_deg + (invert?-1:1) * angle_rad * deg_per_rad, min_deg, max_deg )
+  # ⚠️ 아래는 명목값(neutral=90°, 1:1 rad→deg). 실차에서 서보혼 방향·기계영점에 맞춰
+  #    각 관절을 0 rad 자세로 두고 neutral_deg, 부호(invert), 범위를 실측 보정할 것.
+  #    serial_bridge servo_cmd(UInt8 4개) → ESP32 PKT_SERVO → 펌웨어가 속도제한 추종.
+  servo:
+    arm_base_joint:     { neutral_deg: 90, deg_per_rad: 57.2958, invert: false, min_deg: 0, max_deg: 180 }
+    arm_shoulder_joint: { neutral_deg: 90, deg_per_rad: 57.2958, invert: false, min_deg: 0, max_deg: 180 }
+    arm_elbow_joint:    { neutral_deg: 90, deg_per_rad: 57.2958, invert: false, min_deg: 0, max_deg: 180 }
+    arm_wrist_joint:    { neutral_deg: 90, deg_per_rad: 57.2958, invert: false, min_deg: 0, max_deg: 180 }

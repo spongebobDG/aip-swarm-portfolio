@@ -1,0 +1,8 @@
+- [User — AIP team robotics](user_aip_team.md) — AIP 팀 프로젝트(군집주행 SLAM) 담당, ROS2 Humble/Pi4/ESP32 배경
+- [Project — AIP swarm driving system](project_aip_swarm.md) — 메인 AGV + TurtleBot + 자작 STS3215 차량, 전 차량 RPi4B+LiDAR+SLAM, UWB 배제 (2026-06-15 확정)
+- [Project — Fleet vehicle specs](project_fleet_vehicle_specs.md) — 실차 3대 스펙(메인AGV/TurtleBot/STS3215 자작), 실차 전환 체크리스트
+- [Project — AIP workspace location](project_aip_workspace.md) — aip_swarm_ws는 C:\Users\user\aip_swarm_ws에 스캐폴딩, 배포 대상은 Ubuntu 22.04 중앙 PC
+- [Feedback — future-proof communication stacks](feedback_future_proof_comm.md) — 통신 스택 추천 시 확장성(고성능 차량 교체 시나리오) 반드시 반영
+- [Reference — main AGV ROS2 workspace](reference_main_agv_ws.md) — 메인 차량 ROS2 워크스페이스는 Pi4 Docker 컨테이너 my_ros_env의 /root/colcon_ws
+- [Project — DDS 변천 (SIMPLE↔DS)](project_dds_simple_unified.md) — DS 실패 원인=docker0 locator 충돌(규명 후 DS 재도입). 단, 단일 중앙 DS가 차량 Nav2 내부 discovery 깨뜨림 → SIMPLE 복원 방향. 진단 전 ROS_DOMAIN_ID==42 확인 필수(시뮬45 착시)
+- [Project — Fleet 네트워크/밴드 (ipTIME AX3000Q)](project_fleet_network.md) — 2.4/5GHz 혼합밴드. 중앙·aip1=5GHz, aip2=2.4(brcmfmac CLM 이슈로 5GHz 불가, HW 정상). 같은 서브넷 브리지

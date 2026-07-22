@@ -1,0 +1,14 @@
+# Default parameters for aip_fleet_supervisor when launched from
+# central.launch.py. Override by passing supervisor_params:=<path>.
+
+aip_fleet_supervisor:
+  ros__parameters:
+    vehicle_ids: ["aip1", "aip2", "aip3"]
+    vehicle_topic_aliases: ["aip1=aip1", "aip2=aip2", "aip3=aip3"]
+    # aip1 heartbeat: /aip1/heartbeat (udp_status_heartbeat_adapter 경유)
+    vehicle_cmd_vel_overrides: ["aip1=/aip1/central_cmd_vel"]
+    heartbeat_timeout_sec: 3.5
+    control_lock_ttl_sec: 3.0
+    # Keep false during bring-up for backward compatibility. Set true when
+    # all operator clients publish /fleet/control_lock heartbeats.
+    require_control_lock: false

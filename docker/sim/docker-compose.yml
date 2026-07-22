@@ -1,0 +1,44 @@
+# Dev sim stack — brings up the whole fleet simulation inside a single
+# container so Docker's bridge network is sufficient (host networking
+# is unreliable on Docker Desktop, and this keeps the same layout on
+# Linux for parity).
+#
+# Bring up (from workspace root):
+#   docker compose -f docker/sim/docker-compose.yml up --build
+#
+# Foxglove Studio:
+#   ws://<host>:18765
+#
+# Forcing a clean rebuild (e.g. after msg/srv changes):
+#   docker compose -f docker/sim/docker-compose.yml down -v
+#   docker compose -f docker/sim/docker-compose.yml up --build
+# `-v` removes the build/install volumes so colcon rebuilds from scratch.
+
+services:
+  sim:
+    build:
+      context: ../..
+      dockerfile: docker/sim/Dockerfile
+    image: aip/sim:humble
+    container_name: aip_sim
+    restart: unless-stopped
+    ports:
+      - "18080:8080"
+      - "18765:8765"
+    environment:
+      - ROS_DOMAIN_ID=42
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    volumes:
+      # Source tree — edits on the host are picked up on container
+      # restart (no rebuild needed for pure-Python changes thanks to
+      # colcon --symlink-install).
+      - ../../src:/ws/src
+      # Build artifacts in named volumes so they survive container
+      # restarts but stay out of the host filesystem (especially
+      # important on Windows where /c/... bind-mount I/O is slow).
+      - aip_sim_build:/ws/build
+      - aip_sim_install:/ws/install
+
+volumes:
+  aip_sim_build:
+  aip_sim_install:

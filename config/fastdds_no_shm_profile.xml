@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FastDDS SUPER_CLIENT profile — SHM disabled (aip3 scout-vehicle container only)
+  Uses explicit UDPv4-only transport to avoid broken intra-container SHM
+  communication (FastRTPS 2.6.11 + Docker network_mode:host + ipc:host).
+  interfaceWhiteList forces bind to 192.168.0.5 so DS can reach participants.
+  Central PC continues to use fastdds_client_profile.xml.
+-->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <transport_descriptors>
+      <transport_descriptor>
+        <transport_id>udp_transport</transport_id>
+        <type>UDPv4</type>
+        <interfaceWhiteList>
+          <address>192.168.0.5</address>
+          <address>127.0.0.1</address>
+        </interfaceWhiteList>
+      </transport_descriptor>
+    </transport_descriptors>
+    <participant profile_name="aip_client_participant" is_default_profile="true">
+      <rtps>
+        <userTransports>
+          <transport_id>udp_transport</transport_id>
+        </userTransports>
+        <useBuiltinTransports>false</useBuiltinTransports>
+        <builtin>
+          <discovery_config>
+            <discoveryProtocol>SUPER_CLIENT</discoveryProtocol>
+            <discoveryServersList>
+              <RemoteServer prefix="44.53.00.5f.45.50.52.4f.53.49.4d.41">
+                <metatrafficUnicastLocatorList>
+                  <locator>
+                    <udpv4>
+                      <address>192.168.0.10</address>
+                      <port>11811</port>
+                    </udpv4>
+                  </locator>
+                </metatrafficUnicastLocatorList>
+              </RemoteServer>
+            </discoveryServersList>
+            <leaseDuration>
+              <sec>10</sec>
+            </leaseDuration>
+            <leaseAnnouncement>
+              <sec>3</sec>
+            </leaseAnnouncement>
+          </discovery_config>
+        </builtin>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

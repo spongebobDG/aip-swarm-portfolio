@@ -1,0 +1,10 @@
+[Unit]
+Description=AIP wifi watchdog (gateway reachability -> wlan0 reconnect)
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/wifi_watchdog.sh
+# 차량별 환경(기본 wlan0 / GW 192.168.0.1) 이 다르면 아래 주석 해제해 지정:
+# Environment=WIFI_IFACE=wlan0
+# Environment=WIFI_GW=192.168.0.1

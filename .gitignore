@@ -1,0 +1,52 @@
+# --- Secrets / credentials (NEVER commit) -----------------------------
+firmware/scout/secrets.ini
+firmware/scout_microros/secrets.ini
+docker/central/.env
+config/security/keystore/
+!config/security/sros2_policy.xml
+*.pem
+*.key
+*.crt
+
+# --- ROS2 build artifacts ---------------------------------------------
+build/
+install/
+log/
+*.pyc
+__pycache__/
+
+# --- PlatformIO -------------------------------------------------------
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# --- Node / Foxglove --------------------------------------------------
+node_modules/
+dist/
+*.foxe
+
+# --- Editor / OS ------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Claude Code ------------------------------------------------------
+.claude/
+
+# --- TF tree 덤프 (로컬 생성 파일) -----------------------------------
+frames_*.gv
+frames_*.pdf
+
+# --- Local captures / raw demo data ------------------------------------
+*.bag
+*.mcap
+*.db3
+*.sqlite3
+rosbag2_*/
+docs/images/raw/
+docs/videos/raw/
+
+# --- Portfolio intermediate artifacts ---------------------------------
+tmp/
+archive/portfolio-demo-frames/

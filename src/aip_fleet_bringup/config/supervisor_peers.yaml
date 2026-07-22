@@ -1,0 +1,13 @@
+# supervisor_peers.yaml — 3-peer fleet (matches real hardware: main + 2 budget peers).
+# Used by:
+#   ros2 launch aip_fleet_bringup central.launch.py \
+#       supervisor_params:=$(ros2 pkg prefix aip_fleet_bringup)/share/aip_fleet_bringup/config/supervisor_peers.yaml \
+#       leader_ns:=peer_1
+#
+# This config replaces the [main, aip2, aip3] roster for the Gazebo sim.
+# The original supervisor.yaml (main + scouts) remains unchanged for real hardware.
+
+aip_fleet_supervisor:
+  ros__parameters:
+    vehicle_ids: ["peer_1", "peer_2", "peer_3"]
+    heartbeat_timeout_sec: 2.0

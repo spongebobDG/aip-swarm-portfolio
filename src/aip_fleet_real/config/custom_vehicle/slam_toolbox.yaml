@@ -1,0 +1,26 @@
+# slam_toolbox — 자작 차량(aip3) PLACEHOLDER.
+# ⚠️ LiDAR 미확정 → laser range 값은 추정치. 드라이버/센서 확정 후 실측 보정 필수.
+# 노드 FQN = /aip3/slam_toolbox.
+/aip3/slam_toolbox:
+  ros__parameters:
+    odom_frame:  aip3/odom
+    base_frame:  aip3/base_link
+    map_frame:   map
+    scan_topic:  /aip3/scan
+
+    mode: mapping
+    use_sim_time: false
+    transform_timeout: 0.5
+    tf_buffer_duration: 30.0
+    map_update_interval: 5.0
+
+    resolution: 0.05
+    minimum_laser_range: 0.15   # TODO: LiDAR 확정 후 실측
+    max_laser_range: 8.0        # TODO: LiDAR 확정 후 실측
+    throttle_scans: 3             # RPi4B 절감: LiDAR 스캔 3개 중 1개만 처리
+    minimum_travel_distance: 0.15  # 정지/저속 시 CPU 절감
+    minimum_travel_heading: 0.35
+
+    do_loop_closing: true
+    num_threads: 2
+    map_start_pose: [0.0, 0.0, 0.0]

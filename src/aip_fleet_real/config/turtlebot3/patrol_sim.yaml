@@ -1,0 +1,17 @@
+# 순찰 미션 — Gazebo Classic TB3 Burger 시뮬 (aip2).
+# turtlebot3_world 기준 좌표. 이 월드는 중앙(0,0)이 비어 있고 주변에 원통 8개가
+# 격자(±1m)로 배치 → 로봇을 (0,0)에 스폰하고 원통 격자 바깥 둘레를 순회한다.
+# map 원점 = 로봇 스폰 위치(0,0)이므로 아래 좌표는 월드 좌표와 동일.
+#
+# ⚠️ 실제 RViz2 에서 맵/위치를 보고 좌표를 미세 조정할 것(placeholder 성격).
+/aip2/patrol_node:
+  ros__parameters:
+    vehicle_id: aip2
+    loop_patrol: true
+    # 시뮬 기동(gazebo+스폰+slam+nav2 lifecycle) 대기. 짧아도 서버 대기로 보정됨.
+    start_delay_sec: 18.0
+    # 원통 격자(±1m) 바깥 둘레 순회 [x, y, yaw_deg]
+    waypoints: [ 1.8,  1.8,  135.0,
+                -1.8,  1.8, -135.0,
+                -1.8, -1.8,  -45.0,
+                 1.8, -1.8,   45.0]

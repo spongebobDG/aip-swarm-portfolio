@@ -1,0 +1,10 @@
+[Unit]
+Description=Run AIP wifi watchdog periodically
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=45
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

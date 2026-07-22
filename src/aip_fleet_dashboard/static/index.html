@@ -1,0 +1,3091 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIP 산업 감시 로봇 관제</title>
+<style>
+:root {
+  --bg:#eef3f8; --surface:#fff; --line:#d6dee8; --text:#172033; --muted:#627086;
+  --blue:#1d4ed8; --green:#15803d; --orange:#c2410c; --red:#b91c1c; --slate:#334155;
+  --soft-blue:#dbeafe; --soft-green:#dcfce7; --soft-red:#fee2e2;
+  --panel-shadow: 0 1px 4px rgba(0,0,0,.07);
+}
+body.dark {
+  --bg:#0f172a; --surface:#172033; --line:#2b3950; --text:#e5eefb; --muted:#93a4ba;
+  --soft-blue:#1e3a8a; --soft-green:#14532d; --soft-red:#7f1d1d;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font:13px/1.4 "Segoe UI",system-ui,sans-serif}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+header{
+  height:46px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;background:#172033;color:#f8fafc;
+  border-bottom:1px solid #0f172a;flex-shrink:0;
+}
+.h-title{font-size:15px;font-weight:900;letter-spacing:-.3px;white-space:nowrap}
+.h-right{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:22px;padding:2px 8px;border-radius:4px;
+  background:#475569;color:#fff;font-size:11px;font-weight:800;white-space:nowrap;
+}
+.badge.ok{background:var(--green)}
+.badge.warn{background:var(--orange)}
+.badge.danger{background:var(--red)}
+.badge.pulse{animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.hbtn{
+  min-height:26px;padding:3px 9px;border-radius:4px;
+  background:#26344a;color:#f8fafc;border:1px solid #3b4a63;
+  font-size:11px;font-weight:800;cursor:pointer;
+}
+.hbtn.rec{background:#7f1d1d;border-color:#b91c1c;color:#fca5a5}
+.hbtn.rec.active{background:#b91c1c;animation:pulse 1s infinite}
+
+/* ── Main layout ─────────────────────────────────────────────────── */
+main{
+  height:calc(100vh - 46px);
+  display:grid;
+  grid-template-columns:255px 1fr 296px;
+  gap:8px;padding:8px;
+  min-height:0;
+}
+
+/* ── Shared panel ─────────────────────────────────────────────────── */
+.panel{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:7px;display:flex;flex-direction:column;
+  overflow:hidden;min-height:0;box-shadow:var(--panel-shadow);
+}
+.pt{
+  min-height:34px;padding:6px 10px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:12px;font-weight:800;color:var(--slate);flex-shrink:0;
+}
+body.dark .pt{color:var(--muted)}
+.pb{padding:8px;overflow:auto;min-height:0}
+.stack{display:flex;flex-direction:column;gap:8px;min-height:0}
+
+/* ── Vehicle cards ────────────────────────────────────────────────── */
+#left-col{overflow:hidden}
+#left-col .panel{flex:1;min-height:0}
+.fleet-summary{
+  padding:8px 10px;border-bottom:1px solid var(--line);
+  display:flex;flex-direction:column;gap:5px;flex-shrink:0;
+}
+.cov-bar-wrap{display:flex;align-items:center;gap:7px}
+.cov-bar{flex:1;height:8px;border-radius:4px;background:#e2e8f0;overflow:hidden}
+body.dark .cov-bar{background:#2b3950}
+.cov-fill{height:100%;border-radius:4px;background:var(--green);transition:width .4s ease}
+.vlist{overflow:auto;flex:1;min-height:0}
+.vcard{
+  padding:9px 10px;border-bottom:1px solid var(--line);
+  display:flex;flex-direction:column;gap:5px;
+  cursor:pointer;transition:background .12s;
+}
+.vcard:hover{background:var(--soft-blue)}
+.vcard.selected{background:var(--soft-blue);border-left:3px solid var(--blue)}
+.vcard.offline{opacity:.50}
+.vhead{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.vid{font-weight:800;font-size:12px;display:flex;align-items:center;gap:6px}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.stt{font-size:10px;font-weight:900;padding:2px 6px;border-radius:3px;background:#e2e8f0;color:#475569}
+.stt.AUTO{background:var(--soft-green);color:var(--green)}
+.stt.MANUAL{background:#ffedd5;color:var(--orange)}
+.stt.ESTOP,.stt.FAULT{background:var(--soft-red);color:var(--red)}
+.metric{display:grid;grid-template-columns:30px 1fr 38px;gap:5px;align-items:center;font-size:10px;color:var(--muted)}
+.bar{height:5px;border-radius:3px;background:#e2e8f0;overflow:hidden}
+body.dark .bar{background:#2b3950}
+.bar>span{display:block;height:100%;width:0%;transition:width .3s linear}
+.vrow{display:flex;gap:6px;font-size:10px;color:var(--muted);flex-wrap:wrap}
+.spd{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;background:#f1f5f9}
+body.dark .spd{background:#1e2d45}
+.tags{display:flex;flex-wrap:wrap;gap:3px}
+.tag{background:#edf2f7;color:#475569;border-radius:3px;padding:1px 4px;font-size:9px}
+body.dark .tag{background:#2b3950;color:var(--muted)}
+
+/* ── Center column ────────────────────────────────────────────────── */
+#center-col{display:flex;flex-direction:column;gap:8px;min-height:0}
+#map-panel{flex:1;min-height:0}
+
+/* Map toolbar */
+.toolbar{
+  display:flex;align-items:center;gap:3px;padding:5px 8px;
+  border-bottom:1px solid var(--line);flex-shrink:0;flex-wrap:wrap;
+}
+.tbtn{
+  min-height:28px;padding:3px 8px;border-radius:5px;border:1px solid var(--line);
+  background:var(--bg);color:var(--text);font-size:12px;font-weight:700;
+  cursor:pointer;transition:all .12s;display:flex;align-items:center;gap:4px;
+}
+.tbtn:hover{background:var(--soft-blue);border-color:var(--blue);color:var(--blue)}
+.tbtn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.tbtn.danger-mode{background:var(--soft-red);border-color:var(--red);color:var(--red)}
+.tsep{width:1px;height:20px;background:var(--line);margin:0 3px}
+#mode-hint{font-size:10px;color:var(--orange);font-weight:700;margin-left:4px}
+.map-wrap{flex:1;min-height:0;position:relative;background:#f1f5f9;overflow:hidden}
+body.dark .map-wrap{background:#0b1220}
+#map{width:100%;height:100%;display:block;cursor:crosshair}
+.map-footer{
+  padding:4px 10px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:10px;
+  display:flex;justify-content:space-between;align-items:center;flex-shrink:0;
+}
+
+/* Map fullscreen */
+#map-panel.fs{
+  position:fixed;inset:0;z-index:2000;border-radius:0;border:0;
+}
+
+/* ── Right column tabs ───────────────────────────────────────────── */
+#right-col{display:flex;flex-direction:column;gap:8px;min-height:0}
+#tab-panel{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+.tabs{
+  display:flex;border-bottom:1px solid var(--line);flex-shrink:0;
+  overflow-x:auto;scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:1;min-width:0;padding:7px 4px;border:0;border-bottom:2px solid transparent;
+  background:transparent;color:var(--muted);font-size:11px;font-weight:700;
+  cursor:pointer;transition:all .12s;white-space:nowrap;
+}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab:hover:not(.active){color:var(--text)}
+.tab-pane{display:none;flex:1;overflow:auto;padding:8px;min-height:0}
+.tab-pane.active{display:flex;flex-direction:column;gap:8px}
+
+/* ── Control tab ─────────────────────────────────────────────────── */
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase}
+select,input[type="range"]{width:100%}
+select{
+  height:30px;border:1px solid var(--line);border-radius:5px;
+  padding:0 7px;background:var(--surface);color:var(--text);font-size:12px;
+}
+.lock-box{
+  padding:7px 9px;border-radius:5px;background:#f1f5f9;
+  color:#475569;font-size:11px;font-weight:800;
+}
+body.dark .lock-box{background:#1e2d45;color:var(--muted)}
+.lock-box.own{background:var(--soft-green);color:var(--green)}
+.lock-box.foreign{background:#ffedd5;color:var(--orange)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+button{
+  border:0;border-radius:5px;min-height:30px;padding:5px 8px;
+  cursor:pointer;font-weight:800;font-size:11px;font:inherit;font-weight:800;
+}
+button:disabled{opacity:.42;cursor:not-allowed}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-gray{background:#e2e8f0;color:#172033}
+body.dark .btn-gray{background:#2b3950;color:var(--text)}
+.btn-red{background:var(--red);color:#fff}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-slate{background:var(--slate);color:#fff}
+.estop-big{min-height:68px;font-size:16px;background:var(--red);color:#fff}
+.mrow{display:grid;grid-template-columns:50px 1fr 42px;align-items:center;gap:7px;font-size:11px}
+.joystick-hint{font-size:10px;color:var(--muted);text-align:center;margin-top:2px}
+
+/* ── Patrol tab ──────────────────────────────────────────────────── */
+.wp-list{display:flex;flex-direction:column;gap:4px;max-height:140px;overflow:auto}
+.wp-row{
+  display:grid;grid-template-columns:22px 1fr 24px;gap:5px;align-items:center;
+  padding:5px 7px;border:1px solid var(--line);border-radius:4px;
+  color:var(--muted);font-size:10px;
+}
+.wp-idx{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:18px;height:18px;border-radius:50%;background:var(--blue);
+  color:#fff;font-weight:900;font-size:9px;
+}
+.wp-del{
+  background:transparent;color:var(--muted);min-height:auto;
+  padding:0;font-size:14px;font-weight:400;
+}
+.wp-del:hover{color:var(--red)}
+
+/* ── Zone tab ────────────────────────────────────────────────────── */
+.zone-list{display:flex;flex-direction:column;gap:4px;max-height:100px;overflow:auto}
+.zone-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 7px;border:1px solid var(--line);border-radius:4px;font-size:11px;
+}
+.dock-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;align-items:center;font-size:10px}
+
+/* ── System tab ──────────────────────────────────────────────────── */
+.cov-detail{display:flex;flex-direction:column;gap:4px}
+.cov-row{display:flex;align-items:center;gap:6px;font-size:10px}
+.cov-row .cov-bar{flex:1;height:5px}
+
+/* ── Vision panel (맵 아래 2분할) ─────────────────────────────────── */
+#vision-panel{flex-shrink:0}
+#vision-panel .pt select{height:24px;font-size:11px;width:auto;max-width:140px}
+.vision-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px}
+.vision-box{
+  background:#0f172a;border-radius:6px;overflow:hidden;position:relative;
+  height:260px;cursor:zoom-in;border:1px solid var(--line);transition:border-color .12s;
+}
+.vision-box:hover{border-color:var(--blue)}
+.vision-box img{width:100%;height:100%;object-fit:contain;display:block}
+.vision-overlay{position:absolute;inset:0;pointer-events:none;z-index:2}
+.vision-bbox{
+  position:absolute;border:2px solid #22c55e;border-radius:2px;
+  box-shadow:0 0 0 1px rgba(15,23,42,.85),0 0 12px rgba(34,197,94,.35);
+}
+.vision-bbox.high{
+  border-color:#ef4444;
+  box-shadow:0 0 0 1px rgba(15,23,42,.9),0 0 14px rgba(239,68,68,.45);
+}
+.vision-bbox-label{
+  position:absolute;left:0;top:0;max-width:100%;
+  background:rgba(15,23,42,.9);color:#fff;padding:1px 5px;
+  font-size:9px;font-weight:900;line-height:14px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.vision-empty{color:#64748b;display:flex;height:100%;align-items:center;justify-content:center;font-size:11px;text-align:center;padding:8px}
+.vision-label{position:absolute;top:5px;left:5px;background:rgba(15,23,42,.85);color:#fff;padding:2px 7px;border-radius:3px;font-size:10px;font-weight:800;z-index:1}
+.vision-zoom-hint{position:absolute;bottom:5px;right:6px;background:rgba(15,23,42,.65);color:#cbd5e1;padding:1px 6px;border-radius:3px;font-size:9px;z-index:1;pointer-events:none}
+
+/* Vision 확대 라이트박스 */
+.vmodal{display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.88);
+  align-items:center;justify-content:center;padding:24px}
+.vmodal.open{display:flex}
+.vmodal-inner{position:relative;display:flex;flex-direction:column;align-items:center;
+  max-width:96vw;max-height:94vh}
+.vmodal-inner img{width:96vw;height:88vh;object-fit:contain;border-radius:8px;background:#0f172a}
+.vmodal-inner canvas{max-width:96vw;max-height:88vh;border-radius:8px;background:#0f172a}
+.vmodal-bar{display:flex;justify-content:space-between;align-items:center;
+  width:100%;margin-bottom:10px;gap:12px}
+.vmodal-label{background:rgba(15,23,42,.92);color:#fff;padding:7px 16px;border-radius:7px;
+  font-weight:800;font-size:15px;border:1px solid #334155}
+.vmodal-close{background:#b91c1c;color:#fff;width:40px;height:40px;border-radius:50%;
+  font-size:19px;border:0;cursor:pointer;font-weight:900;flex-shrink:0}
+.vmodal-close:hover{background:#dc2626}
+
+/* ── Alert panel ─────────────────────────────────────────────────── */
+#alert-panel{max-height:200px;flex-shrink:0}
+.alert-feed{display:flex;flex-direction:column;gap:5px}
+.alert-item{
+  border-left:3px solid var(--orange);background:#fff7ed;
+  padding:6px 8px;border-radius:4px;
+}
+.alert-item.high{border-left-color:var(--red);background:#fef2f2}
+body.dark .alert-item{background:#2a1f10}
+body.dark .alert-item.high{background:#2a1010}
+.alert-head{display:flex;justify-content:space-between;font-weight:900;margin-bottom:2px;font-size:11px}
+.empty{color:var(--muted);padding:12px;text-align:center;font-size:11px}
+.muted{color:var(--muted);font-size:10px}
+
+/* ── Toast overlay ───────────────────────────────────────────────── */
+#toast-root{
+  position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;gap:8px;z-index:9999;pointer-events:none;
+}
+.toast{
+  background:#172033;color:#f8fafc;padding:8px 16px;border-radius:7px;
+  font-size:12px;font-weight:700;opacity:0;animation:toastIn .3s ease forwards;
+  pointer-events:none;white-space:nowrap;border:1px solid #334155;
+  box-shadow:0 4px 16px rgba(0,0,0,.3);
+}
+.toast.high{background:#7f1d1d;border-color:#b91c1c}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Mission tab ─────────────────────────────────────────────────── */
+.mphase-bar{display:flex;align-items:center;gap:3px;flex-wrap:wrap;padding:4px 0 6px}
+.mphase{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:800;
+  background:var(--bg);color:var(--muted);border:1px solid var(--line);white-space:nowrap;transition:all .2s}
+.mphase.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.mphase.done{background:var(--soft-green);color:var(--green);border-color:var(--green)}
+.mission-box{padding:7px 9px;border:1px solid var(--line);border-radius:6px;
+  display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
+.check-row{display:flex;flex-wrap:wrap;gap:10px}
+.check-item{display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer}
+.check-item input{cursor:pointer;width:14px;height:14px}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media(max-width:1100px){
+  main{grid-template-columns:230px 1fr 270px;gap:5px;padding:5px}
+}
+@media(max-width:900px){
+  body{overflow:auto}
+  main{height:auto;grid-template-columns:1fr;overflow:visible}
+  .map-wrap{height:380px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-title">⚡ AIP 산업 감시 로봇 관제</div>
+  <div class="h-right">
+    <button id="rec-btn" class="hbtn rec" onclick="toggleBag()" title="MCAP 로그 녹화">● REC</button>
+    <span id="alert-badge" class="badge" title="HIGH 알림 수">0 알림</span>
+    <span id="map-ready" class="badge">MAP WAIT</span>
+    <span id="conn" class="badge danger">DISCONNECTED</span>
+    <span id="clock" class="badge"></span>
+    <button class="hbtn" onclick="toggleTheme()">Dark</button>
+  </div>
+</header>
+
+<main>
+  <!-- ── Left: Vehicle status ─────────────────────────────── -->
+  <div id="left-col" class="stack">
+    <div class="panel" style="flex:1;min-height:0">
+      <div class="pt">
+        차량 상태
+        <span id="online-count" class="badge">0 online</span>
+      </div>
+      <div class="fleet-summary">
+        <div class="cov-bar-wrap">
+          <span style="font-size:10px;color:var(--muted);white-space:nowrap">커버리지</span>
+          <div class="cov-bar"><div class="cov-fill" id="cov-fill" style="width:0%"></div></div>
+          <span id="cov-pct" style="font-size:11px;font-weight:800;color:var(--green);white-space:nowrap">0%</span>
+        </div>
+      </div>
+      <div class="vlist" id="vlist"></div>
+    </div>
+  </div>
+
+  <!-- ── Center: Map ──────────────────────────────────────── -->
+  <div id="center-col">
+    <div class="panel" id="map-panel" style="flex:1;min-height:0">
+      <div class="toolbar">
+        <button class="tbtn active" id="tool-view" onclick="setMode('view')" title="보기/이동 (V)">👁 보기</button>
+        <button class="tbtn" id="tool-goto" onclick="setMode('goto')" title="차량 이동 목표 (G)">📍 이동</button>
+        <button class="tbtn" id="tool-patrol" onclick="setMode('patrol')" title="순찰 경로 추가 (P)">🗺 순찰</button>
+        <button class="tbtn" id="tool-keepout" onclick="setMode('keepout')" title="진입금지구역 (K)">⛔ 금지</button>
+        <button class="tbtn" id="tool-coverage" onclick="setMode('coverage')" title="커버리지 자동 생성 영역 (C)">📐 커버리지</button>
+        <div class="tsep"></div>
+        <button class="tbtn" onclick="zoomIn()" title="확대 (+)">＋</button>
+        <button class="tbtn" onclick="zoomOut()" title="축소 (-)">－</button>
+        <button class="tbtn" onclick="resetView()" title="전체 보기 (F)">⊡</button>
+        <button class="tbtn" id="tool-fs" onclick="toggleFs()" title="전체화면 (Esc)">⛶</button>
+        <div class="tsep"></div>
+        <button class="tbtn active" id="mapsrc-static" onclick="setMapSource('map_static')" title="저장/공유 기준맵 — latest_fleet_map 또는 map_static">🗺 전체맵</button>
+        <button class="tbtn" id="mapsrc-load" onclick="loadSavedMap()" title="저장된 latest_fleet_map을 전체맵으로 불러오기">💾 저장맵</button>
+        <button class="tbtn" id="mapsrc-slam" onclick="setSelectedVehicleMapSource()" title="실시간 공유 맵 (/map) — SLAM 매핑 또는 map_server 분배. 전 차량 공통, 포즈는 차량별 마커">🔍 실시간맵</button>
+        <button class="tbtn" id="mapsrc-clear" onclick="clearMap()" title="대시보드 맵 표시 초기화 — 누적/이전 맵·스캔 잔상 제거">🗑 맵 초기화</button>
+        <span id="mode-hint"></span>
+        <span id="mode-badge" class="badge">mode: view</span>
+      </div>
+      <div class="map-wrap">
+        <canvas id="map"></canvas>
+        <!-- 수동 teleop 금지구역 진입 경고(운영자 인지용) — 차량이 폴리곤 내부일 때 표시.
+             대시보드(브라우저)에서만 계산 → RPi4B 부하 무관. -->
+        <div id="keepout-warning-banner" style="display:none;position:absolute;top:8px;
+             left:50%;transform:translateX(-50%);z-index:30;background:#dc2626;color:#fff;
+             font-weight:700;font-size:13px;padding:8px 14px;border-radius:6px;
+             box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none;text-align:center;
+             max-width:92%"></div>
+      </div>
+      <div class="map-footer">
+        <span id="map-coords">커서를 지도 위로</span>
+        <span id="map-meta" style="color:var(--muted)">지도 대기</span>
+        <span id="scale-bar"></span>
+      </div>
+    </div>
+
+    <!-- 맵 아래 카메라 2분할 (클릭 시 확대) -->
+    <div class="panel" id="vision-panel">
+      <div class="pt">
+        📹 카메라 뷰
+        <select id="vision-select" onchange="onVisionChange()" title="비전 차량 선택"></select>
+        <button id="overlay-toggle" class="btn-gray" style="height:24px;font-size:11px;padding:0 8px" onclick="toggleOverlay()" title="열상 정합 표시 on/off">🌡 열상정합</button>
+        <button id="overlay-mode-toggle" class="btn-gray" style="height:24px;font-size:11px;padding:0 8px;display:none" onclick="toggleOverlayMode()" title="온도 심부 마커 ↔ 열상 합성 전환">🌡 온도</button>
+        <button id="overlay-cal-toggle" class="btn-gray" style="height:24px;font-size:11px;padding:0 8px;display:none" onclick="toggleOverlayCal()" title="정합 캘리브레이션 슬라이더">🎯 보정</button>
+      </div>
+      <div class="vision-grid">
+        <div class="vision-box" onclick="openVisionModal('a')">
+          <span class="vision-label" id="vision-label-a">선택 차량</span>
+          <span class="vision-zoom-hint">🔍 클릭 확대</span>
+          <div id="vision-a" class="vision-empty">비전 프레임 대기</div>
+          <div id="vision-a-overlay" class="vision-overlay"></div>
+          <canvas id="vision-a-canvas" class="vision-overlay" style="display:none;z-index:3"></canvas>
+        </div>
+        <div class="vision-box" onclick="openVisionModal('b')">
+          <span class="vision-label" id="vision-label-b">열화상</span>
+          <span class="vision-zoom-hint">🔍 클릭 확대</span>
+          <div id="vision-b" class="vision-empty">열화상 대기</div>
+        </div>
+      </div>
+      <div id="overlay-cal" style="display:none;padding:6px 8px;border-top:1px solid #1e293b"></div>
+    </div>
+  </div>
+
+  <!-- ── Right: Tabs + Alerts ─────────────────────────────── -->
+  <div id="right-col">
+    <div class="panel" id="tab-panel">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('control')">제어</button>
+        <button class="tab" onclick="switchTab('patrol')">순찰</button>
+        <button class="tab" onclick="switchTab('zone')">구역</button>
+        <button class="tab" onclick="switchTab('system')">시스템</button>
+        <button class="tab" onclick="switchTab('mission')">미션</button>
+      </div>
+
+      <!-- 제어 탭 -->
+      <div id="tab-control" class="tab-pane active">
+        <div class="field">
+          <label>제어 차량</label>
+          <select id="vehicle-select" onchange="onVehicleChange()"></select>
+        </div>
+        <div id="lock-box" class="lock-box">제어 락 없음</div>
+        <div class="grid2">
+          <button class="btn-blue" onclick="takeControl()">제어권 획득</button>
+          <button class="btn-gray" onclick="releaseControl()">제어권 해제</button>
+        </div>
+        <button class="estop-big" style="width:100%" onclick="estopAll()">🚨 전체 비상 정지</button>
+        <div class="grid2">
+          <button class="btn-red" onclick="estopOne()">선택 차량 정지</button>
+          <button class="btn-orange" onclick="releaseOne()">선택 차량 해제</button>
+        </div>
+        <button class="btn-green" style="width:100%" onclick="clearAll()">전체 정지 해제</button>
+        <div class="grid2">
+          <button class="btn-gray" onclick="sendOverride(1)">일시정지</button>
+          <button class="btn-gray" onclick="sendOverride(2)">재개</button>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:2px">
+          <div class="field" style="margin-bottom:6px"><label>수동 주행</label></div>
+          <div class="mrow">
+            <span>전진/후진</span>
+            <input id="linear" type="range" min="-0.3" max="0.3" step="0.01" value="0.2" oninput="updateDriveLabels()">
+            <strong id="linear-val">0.20</strong>
+          </div>
+          <div class="mrow" style="margin-top:4px">
+            <span>회전</span>
+            <input id="angular" type="range" min="-1.0" max="1.0" step="0.01" value="0.5" oninput="updateDriveLabels()">
+            <strong id="angular-val">0.50</strong>
+          </div>
+          <button id="hold-drive" class="btn-orange" style="width:100%;margin-top:6px"
+            onmousedown="startDrive()" onmouseup="stopDrive()" onmouseleave="stopDrive()"
+            ontouchstart="startDrive()" ontouchend="stopDrive()">
+            누르는 동안 수동 주행
+          </button>
+          <div class="joystick-hint">키보드: W/S 전후 · A/D 회전 · Space 정지</div>
+          <div style="border-top:1px solid var(--line);padding-top:6px;margin-top:6px">
+            <button id="esp32-reset-btn" class="btn-orange" style="width:100%"
+              onclick="esp32Reset()" title="aip1 ESP32 시리얼 타임아웃 시 fleet_main 재시작으로 DTR 리셋">
+              ⚡ ESP32 재시작 (aip1)
+            </button>
+          </div>
+        </div>
+        <!-- 서보암(aip1) 수동 제어 — 구동모터처럼 웹에서 직접 제어(→ /aip1/servo_cmd → ESP32) -->
+        <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:6px">
+          <div class="field" style="margin-bottom:4px"><label>서보암 (aip1) — 수동 제어</label></div>
+          <!-- CCTV PTZ 스타일 십자 방향패드: 팬=베이스, 틸트=리스트, ⌂=홈(전방) -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-width:168px;margin:2px auto 4px">
+            <span></span>
+            <button class="btn-gray" onclick="armNudge(3,-8)"  title="틸트 업(리스트)">▲</button>
+            <span></span>
+            <button class="btn-gray" onclick="armNudge(0,-8)" title="팬 좌(베이스)">◀</button>
+            <button class="btn-blue" onclick="armPose('forward')" title="홈(전방)">⌂</button>
+            <button class="btn-gray" onclick="armNudge(0,8)"  title="팬 우(베이스)">▶</button>
+            <span></span>
+            <button class="btn-gray" onclick="armNudge(3,8)" title="틸트 다운(리스트)">▼</button>
+            <span></span>
+          </div>
+          <!-- 4축 슬라이더 (정적 — 항상 표시) -->
+          <div class="mrow" style="margin-top:3px"><span style="min-width:54px">베이스</span><input id="arm-j0" type="range" min="0" max="180" step="1" value="90" oninput="armLbl(0)" onchange="armServoFromSliders()"><strong id="arm-j0v">90</strong></div>
+          <div class="mrow" style="margin-top:3px"><span style="min-width:54px">숄더</span><input id="arm-j1" type="range" min="0" max="180" step="1" value="90" oninput="armLbl(1)" onchange="armServoFromSliders()"><strong id="arm-j1v">90</strong></div>
+          <div class="mrow" style="margin-top:3px"><span style="min-width:54px">엘보</span><input id="arm-j2" type="range" min="0" max="180" step="1" value="90" oninput="armLbl(2)" onchange="armServoFromSliders()"><strong id="arm-j2v">90</strong></div>
+          <div class="mrow" style="margin-top:3px"><span style="min-width:54px">리스트</span><input id="arm-j3" type="range" min="0" max="180" step="1" value="90" oninput="armLbl(3)" onchange="armServoFromSliders()"><strong id="arm-j3v">90</strong></div>
+          <div class="grid2" style="margin-top:6px">
+            <button class="btn-gray" onclick="armPose('stow')" title="접기 자세">접기(stow)</button>
+            <button class="btn-blue" onclick="armScan()" title="arm_config 스캔 시퀀스 자동 실행">자동 스캔</button>
+          </div>
+          <button class="btn-orange" style="width:100%;margin-top:4px" onclick="armStop()" title="스캔 중지 + 접기">■ 스캔 정지</button>
+          <div class="joystick-hint">방향키=팬(베이스)/틸트(리스트)(±8°)·⌂=홈, 슬라이더=4축 직접 (deg 0~180) → ESP32</div>
+        </div>
+      </div>
+
+      <!-- 순찰 탭 -->
+      <div id="tab-patrol" class="tab-pane">
+        <div style="font-size:10px;color:var(--muted);padding:2px 0">
+          지도 모드 <strong style="color:var(--blue)">[순찰]</strong>로 전환 후 클릭하여 웨이포인트 추가
+        </div>
+        <div class="mrow">
+          <span>Yaw</span>
+          <input id="patrol-yaw" type="range" min="-180" max="180" step="5" value="0" oninput="onPatrolYawChange()">
+          <strong id="patrol-yaw-val">0°</strong>
+        </div>
+        <div class="wp-list" id="wp-list">
+          <div class="empty">웨이포인트 없음</div>
+        </div>
+        <div class="grid2" style="margin-top:2px">
+          <button class="btn-gray" onclick="wpUndo()">↩ Undo</button>
+          <button class="btn-gray" onclick="wpClear()">✕ Clear</button>
+          <button class="btn-blue" onclick="wpSend()">▶ 전송</button>
+          <button class="btn-green" onclick="wpSave()">💾 저장</button>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:4px">
+          <div class="field" style="margin-bottom:5px"><label>순찰 제어</label></div>
+          <div class="grid2">
+            <button id="btn-patrol-start" class="btn-gray" onclick="sendPatrolCmd('start')">▶ 시작</button>
+            <button id="btn-patrol-stop"  class="btn-gray" onclick="sendPatrolCmd('stop')">■ 정지</button>
+            <button id="btn-patrol-loop"  class="btn-gray" onclick="sendPatrolCmd('mode:loop')">🔁 루프</button>
+            <button class="btn-gray" onclick="sendPatrolCmd('mode:waypoints')">→ 순서</button>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:8px;margin-top:4px">
+          <div class="field" style="margin-bottom:4px"><label>커버리지 자동 생성</label></div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">
+            지도 모드 <strong style="color:#059669">[📐 커버리지]</strong>(C) → 맵에서 드래그하여 직사각형 영역 지정
+          </div>
+          <div class="mrow" style="margin-bottom:4px">
+            <span>간격</span>
+            <input id="cov-spacing" type="range" min="0.5" max="5.0" step="0.5" value="2.0" oninput="onCovSpacingChange()">
+            <strong id="cov-spacing-val">2.0m</strong>
+          </div>
+          <div class="mrow">
+            <span>방향</span>
+            <input id="cov-heading" type="range" min="0" max="165" step="15" value="0" oninput="onCovHeadingChange()">
+            <strong id="cov-heading-val">0°</strong>
+          </div>
+          <div class="grid2" style="margin-top:5px">
+            <button class="btn-gray" onclick="cancelCoverageDraft()">✕ 취소</button>
+            <button id="btn-gen-coverage" class="btn-green" onclick="generateCoverage()">⚡ 경로 생성</button>
+          </div>
+          <div style="margin-top:4px">
+            <button class="btn-gray" style="width:100%;font-size:11px" onclick="clearCoveragePolygon()">🗑 커버리지 영역 삭제</button>
+          </div>
+          <div id="coverage-status" style="font-size:10px;color:var(--muted);margin-top:4px;min-height:14px"></div>
+        </div>
+      </div>
+
+      <!-- 구역 탭 -->
+      <div id="tab-zone" class="tab-pane">
+        <div>
+          <div class="field" style="margin-bottom:5px"><label>진입금지구역</label></div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">
+            지도 모드 <strong style="color:var(--red)">[금지]</strong> → 클릭으로 다각형 그리기, 더블클릭/시작점 클릭으로 완성
+          </div>
+          <div class="zone-list" id="zone-list"><div class="empty">구역 없음</div></div>
+          <div class="grid2" style="margin-top:5px">
+            <button class="btn-gray" onclick="cancelKeepoutDraft()">취소</button>
+            <button class="btn-red" onclick="clearKeepout()">전체 삭제</button>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:8px">
+          <div class="field" style="margin-bottom:5px"><label>지도 위치 보정 · Nav2 위치추정</label></div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">
+            선택 차량을 실제 지도 위치/방향에 배치 → 표시 marker 보정 + <b>Nav2/AMCL <code>initialpose</code> 발행</b>.
+            로컬라이제이션 모드(매핑 후)에서 차량을 그 위치로 초기화함. 매핑 중(AMCL 미실행)이면 표시 보정만 적용.
+          </div>
+          <div class="mrow" style="margin-bottom:5px">
+            <span>방향</span>
+            <input id="pose-align-yaw" type="range" min="-180" max="180" step="5" value="0" oninput="onPoseAlignYawChange()">
+            <strong id="pose-align-yaw-val">0°</strong>
+          </div>
+          <div class="grid2" style="margin-bottom:5px">
+            <button class="btn-gray" onclick="useCurrentYawForPoseAlign()">현재 방향 사용</button>
+            <button class="btn-gray" onclick="copyPoseYawToPatrolYaw()">순찰 Yaw에도 적용</button>
+          </div>
+          <div class="grid2">
+            <button class="btn-slate" onclick="startPoseAlign()">◎ 보정하기</button>
+            <button class="btn-gray" onclick="clearPoseAlign()">보정 해제</button>
+          </div>
+          <div id="pose-align-status" style="font-size:11px;color:var(--muted);margin-top:6px;padding:5px 6px;background:var(--bg);border-radius:4px;line-height:1.45">
+            선택 차량 pose 대기
+          </div>
+        </div>
+      </div>
+
+      <!-- 시스템 탭 -->
+      <div id="tab-system" class="tab-pane">
+        <div>
+          <div class="field" style="margin-bottom:5px"><label>커버리지</label></div>
+          <div class="cov-detail" id="cov-detail"></div>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:8px">
+          <div class="field" style="margin-bottom:5px"><label>MCAP 로그</label></div>
+          <div id="bag-status" style="font-size:11px;color:var(--muted);margin-bottom:5px">녹화 중 아님</div>
+          <div class="grid2">
+            <button class="btn-red" onclick="toggleBag()" id="bag-btn">● 녹화 시작</button>
+            <button class="btn-gray" onclick="stopBag()">■ 정지</button>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:8px">
+          <div class="field" style="margin-bottom:5px"><label>지도 관리</label></div>
+          <div class="grid2">
+            <button class="btn-blue" onclick="send({cmd:'publish_map_ready'})">✓ Map Ready</button>
+            <button class="btn-gray" onclick="send({cmd:'save_map'})">💾 지도 저장</button>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:8px">
+          <div class="field" style="margin-bottom:5px"><label>시뮬 시나리오</label></div>
+          <div class="grid2">
+            <button class="btn-gray" onclick="setScenario('NORMAL')">NORMAL</button>
+            <button class="btn-orange" onclick="setScenario('FIRE')">FIRE</button>
+            <button class="btn-gray" onclick="setScenario('COLLISION')">COLLISION</button>
+            <button class="btn-gray" onclick="setScenario('RESCUE')">RESCUE</button>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line);padding-top:8px">
+          <div class="field" style="margin-bottom:5px"><label>알림 설정</label></div>
+          <div class="grid2">
+            <button id="sound-btn" class="btn-gray" onclick="toggleSound()">🔔 알림음 켬</button>
+            <button class="btn-gray" onclick="clearAlerts()">알림 지우기</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 미션 탭 -->
+      <div id="tab-mission" class="tab-pane">
+        <!-- 2026-06-27: 미션 오케스트레이션(start_mapping/deploy_patrol/reset_mission)은
+             백엔드 미연결(고아) → 추후 AI 학습 모델 파이프라인에 통합 예정. 현재 비활성화.
+             동일 작업은 [제어](수동 주행·단일 목표 이동)·[순찰](웨이포인트 편집) 탭 사용. -->
+        <div style="font-size:11px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;
+                    border-radius:4px;padding:6px 8px;margin:2px 0 6px">
+          ① <b>매핑(수동/자율) · 로컬라이제이션(저장맵+AMCL)</b>은 동작합니다(중앙 스택, aip1).
+          순찰 자동투입(③·④)은 추후 통합 예정 — 지금은 <b>[순찰]</b> 탭 사용.
+        </div>
+        <div style="font-size:10px;color:var(--muted);padding:2px 0 4px">
+          (설계) 한 차량이 자율 매핑 완료 후 나머지 차량 순찰 투입
+        </div>
+        <div class="mphase-bar">
+          <span id="mphase-1" class="mphase">① 매핑</span>
+          <span style="color:var(--muted);font-size:10px;padding:0 1px">→</span>
+          <span id="mphase-2" class="mphase">② 맵 완성</span>
+          <span style="color:var(--muted);font-size:10px;padding:0 1px">→</span>
+          <span id="mphase-3" class="mphase">③ 순찰 투입</span>
+        </div>
+
+        <div class="mission-box">
+          <div class="field">
+            <label>① 매핑 차량 지정</label>
+            <select id="mission-mapper-select">
+              <option value="aip1">aip1</option>
+              <option value="aip2">aip2</option>
+              <option value="aip3">aip3</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>매핑 모드</label>
+            <select id="mission-mapper-mode">
+              <option value="auto">자율 매핑 (explore 프론티어 탐색)</option>
+              <option value="manual">수동 매핑 (teleop 주행)</option>
+              <option value="localize">로컬라이제이션 (저장맵 + AMCL)</option>
+            </select>
+          </div>
+          <button id="btn-start-mapping" class="btn-blue" style="width:100%" onclick="startMapping()" title="중앙 스택 기동 — 자율=SLAM+Nav2+explore, 수동=SLAM, 로컬라이제이션=최신 저장맵+AMCL">▶ 시작</button>
+          <button id="btn-stop-mapping" class="btn-gray" style="width:100%;margin-top:3px" onclick="stopMapping()" title="중앙 스택 정지 + 잔류 노드(slam/amcl/map_server 등) 정리">■ 정지</button>
+          <div id="mapping-status-line" style="font-size:11px;color:var(--muted);margin-top:5px;min-height:14px"></div>
+        </div>
+
+        <div class="mission-box">
+          <div class="field" style="margin-bottom:0"><label>② 맵 완성 확인</label></div>
+          <div id="mission-map-status" style="font-size:11px;color:var(--muted);padding:4px 6px;background:var(--bg);border-radius:4px">
+            맵 대기 중...
+          </div>
+          <button class="btn-gray" style="width:100%;opacity:.5;cursor:not-allowed" onclick="send({cmd:'publish_map_ready'})" disabled title="미션 패널 비활성">✓ 맵 완성 수동 확인</button>
+        </div>
+
+        <div class="mission-box">
+          <div class="field" style="margin-bottom:4px"><label>③ 순찰 투입 차량</label></div>
+          <div class="check-row" id="mission-patrol-checks">
+            <label class="check-item"><input type="checkbox" value="aip1" checked> aip1</label>
+            <label class="check-item"><input type="checkbox" value="aip2" checked> aip2</label>
+            <label class="check-item"><input type="checkbox" value="aip3" checked> aip3</label>
+          </div>
+          <button id="btn-deploy-patrol" class="btn-green" style="width:100%;opacity:.5;cursor:not-allowed" onclick="deployPatrol()" disabled title="백엔드 미연결 — 추후 AI 파이프라인 통합 예정">▶ 순찰 투입</button>
+          <button class="btn-gray" style="width:100%;opacity:.5;cursor:not-allowed" onclick="stopAllMissionPatrol()" disabled title="미션 패널 비활성">■ 전체 순찰 정지</button>
+        </div>
+
+        <button class="btn-gray" style="width:100%;margin-top:2px;opacity:.5;cursor:not-allowed" onclick="resetMission()" disabled title="미션 패널 비활성">↺ 미션 초기화</button>
+      </div>
+
+    </div>
+
+    <!-- 알림 피드 -->
+    <div class="panel" id="alert-panel">
+      <div class="pt">
+        알림 피드
+        <button class="btn-gray" style="min-height:22px;padding:1px 7px;font-size:10px" onclick="clearAlerts()">지우기</button>
+      </div>
+      <div class="pb alert-feed" id="alert-feed"></div>
+    </div>
+  </div>
+</main>
+
+<div id="toast-root"></div>
+
+<!-- 카메라 확대 라이트박스 -->
+<div id="vision-modal" class="vmodal" onclick="if(event.target.id==='vision-modal')closeVisionModal()">
+  <div class="vmodal-inner">
+    <div class="vmodal-bar">
+      <span class="vmodal-label" id="vision-modal-label">카메라</span>
+      <button class="vmodal-close" onclick="closeVisionModal()" title="닫기 (Esc)">✕</button>
+    </div>
+    <img id="vision-modal-img" src="" alt="카메라 확대 화면">
+    <canvas id="vision-modal-canvas" style="display:none"></canvas>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  Constants
+// ══════════════════════════════════════════════════════════════
+const VEHICLES = ["aip1","aip2","aip3"];
+const COLORS = {
+  aip1:"#1d4ed8", aip2:"#15803d", aip3:"#c2410c"
+};
+const OPERATOR_ID = `web-${Math.random().toString(36).slice(2,7)}-${Date.now().toString(36)}`;
+const SMOOTH = 0.16;   // exponential pose smoothing α per frame (~60fps)
+const TRAIL_MAX = 150;
+
+// ══════════════════════════════════════════════════════════════
+//  Application state
+// ══════════════════════════════════════════════════════════════
+const state = {
+  ws:null, connected:false,
+  vehicles:{}, offline:new Set(VEHICLES),
+  targetPoses:{}, displayPoses:{}, trails:{},
+  thermal:{}, odom:{},
+  alerts:[], highCount:0,
+  vision:{}, thermalVision:{}, visionStreams:{}, thermalStreams:{}, visionPollMs:0, thermalPollMs:0, visionPollTimers:{}, visionPollTokens:{}, visionPollQuery:{rgb:false, thermal:false}, selectedVision:"aip1", visionModal:null,  // 'a'|'b'|null
+  overlayOn:false, overlayMode:'markers', overlayCalVid:null, overlayCal:{dx:0,dy:0,scale:1,rotation:0,alpha:0.55,edge:0,skew_x:0,skew_y:0}, overlayRaf:null, thermalSpots:{},
+  selectedVehicle:"aip2",
+  manualVehicleSelection:false,
+  mapImage:null, mapMeta:null,
+  mapSource:'map_static',
+  lockState:{},             // effective server + local lock view
+  serverLockState:{},
+  localLocks:{},
+  requireControlLock:false,
+  controlLockTtlSec:0,
+  driveTimer:null,
+  plannerWps:{},          // vid → [[x,y,yaw], ...]
+  patrolStatus:{},        // vid → {running, loop, wp_index, wp_total}
+  keepoutZones:[],        // [{pts:[{x,y},...], label}]
+  keepoutDraft:[],        // [{x,y}] in-progress keepout polygon
+  keepoutInside:{},       // vid → zone label: 현재 금지구역 내부인 차량 (경고용)
+  keepoutLastBeep:0,      // 진입 지속 중 재경고 throttle(ms)
+  coverageDraft:[],       // [{x,y}] in-progress coverage polygon (수동 WP와 별개)
+  coveragePolygon:[],     // [{x,y}] confirmed coverage polygon (생성 후에도 유지)
+  coverageRectDrag:{active:false,x1:0,y1:0,x2:0,y2:0}, // 드래그 중 사각형 프리뷰
+  coverageGenVids:{},     // vid → true: 커버리지 생성된 WP (행 단위 렌더링)
+  missionPhase:'IDLE',   // 'IDLE'|'MAPPING'|'MAP_READY'|'PATROLLING'
+  missionMapper:'',
+  dockPositions:{},       // vid → {x, y, yaw_rad}
+  poseCalibrations:{},    // vid → dashboard display transform
+  coverageTotal:0,
+  coveragePerVehicle:{},
+  recording:false,
+  audioEnabled:false, audioCtx:null,
+  lastNoLockToast:0,
+  mapMode:'view',         // 'view'|'goto'|'patrol'|'keepout'|'dock'|'pose_align'
+  dockTargetVid:null,
+  drag:{active:false, startX:0, startY:0, startTx:0, startTy:0},
+  isFs:false,
+  scanPoints:{},   // vid → [[mx,my], ...]
+};
+
+// ══════════════════════════════════════════════════════════════
+//  View transform (pan / zoom)
+// ══════════════════════════════════════════════════════════════
+const view = {tx:0, ty:0, scale:1.0};
+
+function worldToScreen(wx, wy) {
+  const c = canvas();
+  const W = c.width, H = c.height;
+  const n = worldToNatural(wx, wy, W, H);
+  return { x: n.x * view.scale + view.tx, y: n.y * view.scale + view.ty };
+}
+
+function screenToWorld(sx, sy) {
+  const c = canvas();
+  const W = c.width, H = c.height;
+  const nx = (sx - view.tx) / view.scale;
+  const ny = (sy - view.ty) / view.scale;
+  return naturalToWorld(nx, ny, W, H);
+}
+
+// 맵을 원본 비율 그대로 배치(uniform px/셀 + 레터박스 중앙정렬). 캔버스 비율로 늘리지 않음.
+// 맵 이미지 1픽셀=1셀이므로 셀 좌표를 그대로 px 로 스케일하면 가로/세로 동일 비율 유지.
+function mapNaturalRect(W, H) {
+  const m = state.mapMeta;
+  const s = Math.min(W / m.width, H / m.height);   // x·y 동일 스케일 → 비율 보존
+  return { s, w: m.width * s, h: m.height * s,
+           ox: (W - m.width * s) / 2, oy: (H - m.height * s) / 2 };
+}
+
+function worldToNatural(wx, wy, W, H) {
+  if (state.mapMeta) {
+    const m = state.mapMeta;
+    const r = mapNaturalRect(W, H);
+    const px = r.ox + (wx - m.origin_x) / m.resolution * r.s;
+    const py = r.oy + (wy - m.origin_y) / m.resolution * r.s;
+    return { x: px, y: H - py };
+  }
+  const range=24, min=-12;
+  return { x:(wx-min)/range*W, y:H-(wy-min)/range*H };
+}
+
+function naturalToWorld(nx, ny, W, H) {
+  if (state.mapMeta) {
+    const m = state.mapMeta;
+    const r = mapNaturalRect(W, H);
+    const cellsX = (nx - r.ox) / r.s;
+    const cellsY = ((H - ny) - r.oy) / r.s;
+    return { x: m.origin_x + cellsX * m.resolution, y: m.origin_y + cellsY * m.resolution };
+  }
+  const range=24, min=-12;
+  return { x: nx/W*range+min, y:(H-ny)/H*range+min };
+}
+
+function resetView() {
+  view.tx=0; view.ty=0; view.scale=1.0;
+}
+
+function zoomIn()  { zoomAt(canvas().width/2, canvas().height/2, 1.25); }
+function zoomOut() { zoomAt(canvas().width/2, canvas().height/2, 0.80); }
+
+function zoomAt(sx, sy, factor) {
+  view.scale = Math.max(0.15, Math.min(10, view.scale * factor));
+  view.tx = sx - (sx - view.tx) * factor;
+  view.ty = sy - (sy - view.ty) * factor;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Map canvas reference
+// ══════════════════════════════════════════════════════════════
+function canvas() { return document.getElementById('map'); }
+function $(id)    { return document.getElementById(id); }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function attr(v) { return String(v).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'); }
+
+// ══════════════════════════════════════════════════════════════
+//  WebSocket
+// ══════════════════════════════════════════════════════════════
+function send(payload) {
+  if (state.ws && state.ws.readyState===WebSocket.OPEN)
+    state.ws.send(JSON.stringify(payload));
+}
+
+function connect() {
+  const proto = location.protocol==='https:' ? 'wss' : 'ws';
+  state.ws = new WebSocket(`${proto}://${location.host}/ws`);
+  $('conn').textContent='CONNECTING'; $('conn').className='badge warn';
+  state.ws.onopen = () => {
+    state.connected=true; $('conn').textContent='CONNECTED'; $('conn').className='badge ok';
+    refreshControlLocks();
+  };
+  state.ws.onclose= () => { state.connected=false; $('conn').textContent='DISCONNECTED'; $('conn').className='badge danger'; setTimeout(connect,1800); };
+  state.ws.onerror= () => { $('conn').textContent='ERROR'; $('conn').className='badge danger'; };
+  state.ws.onmessage= e => handleMsg(JSON.parse(e.data));
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Message handler
+// ══════════════════════════════════════════════════════════════
+function handleMsg(msg) {
+  switch (msg.type) {
+    case 'fleet_status': onFleetStatus(msg); break;
+    case 'poses':        onPoses(msg); break;
+    case 'thermal':      state.thermal = msg.data||{}; renderVehicles(); break;
+    case 'odom':         onOdom(msg); break;
+    case 'alert':        if (msg.level!=='NONE') onAlert(msg); break;
+    case 'slam_map':        onSlamMap(msg); break;
+    case 'map_source_changed': onMapSourceChanged(msg); break;
+    case 'map_ready':    onMapReady(msg); break;
+    case 'vision':       onVision(msg); break;
+    case 'vision_streams': onVisionStreams(msg); break;
+    case 'thermal_spots': onThermalSpots(msg); break;
+    case 'mapping_status': onMappingStatus(msg); break;
+    case 'thermal_streams': onThermalStreams(msg); break;
+    case 'vision_config': onVisionConfig(msg); break;
+    case 'control_lock_state': onControlLockState(msg); break;
+    case 'patrol_plan':  onPatrolPlan(msg); break;
+    case 'coverage_total':      onCoverageTotal(msg); break;
+    case 'coverage_per_vehicle':onCoveragePerVehicle(msg); break;
+    case 'bag_state':    onBagState(msg); break;
+    case 'navigate_rejected': onNavigateRejected(msg); break;
+    case 'patrol_status':     onPatrolStatus(msg); break;
+    case 'dock_positions':       onDockPositions(msg); break;
+    case 'pose_calibrations':     onPoseCalibrations(msg); break;
+    case 'pose_calibration_error': onPoseCalibrationError(msg); break;
+    case 'map_loaded': onMapLoaded(msg); break;
+    case 'keepout_zones_restore': onKeeputZonesRestore(msg); break;
+    case 'mission_phase':         onMissionPhase(msg); break;
+    case 'esp32_reset_result':    onEsp32ResetResult(msg); break;
+    case 'scan':                  onScan(msg); break;
+    case 'map_clear':             state.mapImage=null; state.mapMeta=null; break;
+  }
+}
+
+function onControlLockState(msg) {
+  state.serverLockState = msg.locks || {};
+  state.requireControlLock = !!msg.require_control_lock;
+  state.controlLockTtlSec = Number(msg.ttl_sec || 0);
+  reconcileControlLocks();
+  renderLock();
+}
+
+function reconcileControlLocks() {
+  const merged = {...(state.serverLockState || {})};
+  for (const [vid, local] of Object.entries(state.localLocks || {})) {
+    const server = merged[vid];
+    if (server && server.operator_id && server.operator_id !== OPERATOR_ID) {
+      delete state.localLocks[vid];
+      continue;
+    }
+    merged[vid] = server || local;
+  }
+  state.lockState = merged;
+}
+
+
+function onKeeputZonesRestore(msg) {
+  if (!Array.isArray(msg.zones)) return;
+  state.keepoutZones = msg.zones.map((pts, i) => ({
+    pts: pts.map(p => ({x: +p.x, y: +p.y})),
+    label: `구역${i + 1}`,
+  }));
+  renderZoneList?.();
+}
+
+function onDockPositions(msg) {
+  if (msg.positions) {
+    Object.assign(state.dockPositions, msg.positions);
+    renderDockInfo();
+  }
+}
+
+function onPoseCalibrations(msg) {
+  state.poseCalibrations = msg.calibrations || {};
+  renderVehicles();
+  renderPoseAlignInfo();
+}
+
+function onPoseCalibrationError(msg) {
+  const vid = msg.vehicle_id || state.selectedVehicle;
+  showToast(`⚠ ${vid} pose가 아직 없어 위치 보정 불가`, true);
+}
+
+
+function onPatrolStatus(msg) {
+  if (msg.vehicle_id) state.patrolStatus[msg.vehicle_id] = msg;
+  if ((msg.vehicle_id || state.selectedVehicle) !== state.selectedVehicle) return;
+  const running = msg.running;
+  const loop    = !!msg.loop;
+  const start = document.getElementById('btn-patrol-start');
+  const stop  = document.getElementById('btn-patrol-stop');
+  const loopBtn = document.getElementById('btn-patrol-loop');
+  if (start)   { start.className   = running ? 'btn-gray'  : 'btn-green'; }
+  if (stop)    { stop.className    = running ? 'btn-red'   : 'btn-gray';  }
+  if (loopBtn) { loopBtn.className = loop    ? 'btn-blue'  : 'btn-gray';  }
+}
+
+function onNavigateRejected(msg) {
+  const zone = msg.zone || '금지구역';
+  showToast(`⛔ [${msg.vehicle_id}] 목표 (${(+msg.x).toFixed(2)}, ${(+msg.y).toFixed(2)}) 거부: ${zone} 내부`, true);
+}
+
+function onFleetStatus(msg) {
+  state.offline = new Set(msg.offline||[]);
+  for (const v of msg.vehicles||[]) state.vehicles[v.id]=v;
+  ensureOnlineVehicleSelected();
+  renderVehicles();
+  renderPoseAlignInfo();
+}
+
+function ensureOnlineVehicleSelected() {
+  if (state.manualVehicleSelection) return;
+  if (state.vehicles[state.selectedVehicle] && !state.offline.has(state.selectedVehicle)) return;
+  const preferred = ['aip2', 'aip3', 'aip1'];
+  const next = preferred.find(id => state.vehicles[id] && !state.offline.has(id));
+  if (!next || next === state.selectedVehicle) return;
+  state.selectedVehicle = next;
+  const vehicleSelect = $('vehicle-select');
+  if (vehicleSelect) vehicleSelect.value = next;
+  renderLock();
+  renderWpList();
+  onPatrolStatus(state.patrolStatus[next] || {vehicle_id: next, running: false, loop: true});
+}
+
+function onPoses(msg) {
+  for (const p of msg.poses||[]) {
+    // Smooth pose update
+    state.targetPoses[p.id] = p;
+    if (!state.displayPoses[p.id]) state.displayPoses[p.id]={...p};
+    // Trail
+    const trail = state.trails[p.id]||[];
+    const last = trail[trail.length-1];
+    if (!last || Math.hypot(last.x-p.x, last.y-p.y)>0.05) {
+      trail.push({x:p.x, y:p.y});
+      if (trail.length>TRAIL_MAX) trail.shift();
+    }
+    state.trails[p.id]=trail;
+  }
+  checkKeepoutWarnings();   // 금지구역 진입 경고(수동 teleop 운영자 인지용)
+}
+
+// ── 금지구역 진입 경고 ───────────────────────────────────────────────
+// 차량이 금지구역 폴리곤 내부에 있으면 운영자에게 경고(배너+토스트+청각).
+// costmap 은 자율 경로만 막고 수동 teleop 은 못 막으므로, 운영자가 직접
+// 인지·회피하도록 한다. 전부 브라우저에서 계산 → RPi4B 부하 없음.
+function _pointInPolygon(px, py, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const xi = pts[i].x, yi = pts[i].y, xj = pts[j].x, yj = pts[j].y;
+    if (((yi > py) !== (yj > py)) &&
+        (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function checkKeepoutWarnings() {
+  const inside = {};
+  if (state.keepoutZones.length) {
+    for (const [vid, p] of Object.entries(state.targetPoses || {})) {
+      if (!p || typeof p.x !== 'number') continue;
+      for (const z of state.keepoutZones) {
+        if (z.pts && z.pts.length >= 3 && _pointInPolygon(p.x, p.y, z.pts)) {
+          inside[vid] = z.label || '금지구역';
+          break;
+        }
+      }
+    }
+  }
+  const prev = state.keepoutInside || {};
+  for (const vid in inside) {            // 신규 진입 → 토스트+청각 경고
+    if (!prev[vid]) {
+      showToast(`⚠ ${vid} 금지구역 진입(${inside[vid]}) — 즉시 회피하세요`, true);
+      playBeep();
+    }
+  }
+  state.keepoutInside = inside;
+  const n = Object.keys(inside).length;
+  if (n && Date.now() - (state.keepoutLastBeep || 0) > 3000) {  // 지속 중 3s 간격 재경고
+    state.keepoutLastBeep = Date.now();
+    playBeep();
+  }
+  updateKeepoutBanner();
+}
+function updateKeepoutBanner() {
+  const el = document.getElementById('keepout-warning-banner');
+  if (!el) return;
+  const inside = state.keepoutInside || {};
+  const vids = Object.keys(inside);
+  if (!vids.length) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.textContent = '⚠ 금지구역 진입: ' +
+    vids.map(v => `${v}(${inside[v]})`).join(', ') + ' — 운영자 회피 필요';
+}
+
+function onOdom(msg) {
+  state.odom[msg.vehicle_id] = { speed:msg.speed_mps, dist:msg.distance_m };
+  renderVehicles();
+}
+
+function onAlert(msg) {
+  const entry = {...msg, ts:new Date().toLocaleTimeString('ko-KR',{hour12:false})};
+  state.alerts.unshift(entry);
+  state.alerts = state.alerts.slice(0,100);
+  if (msg.level==='HIGH') {
+    state.highCount++;
+    playBeep();
+    autoPanToAlert(msg);
+    showToast(`🔥 ${msg.vehicle_id} HIGH ALERT ${msg.max_temp}°C`, true);
+  }
+  $('alert-badge').textContent=`${state.highCount} 알림`;
+  $('alert-badge').className = state.highCount ? 'badge danger' : 'badge';
+  renderAlerts();
+  renderVisionOverlay();
+}
+
+function onSlamMap(msg) {
+  state.mapSource = msg.source || state.mapSource;
+  state.mapMeta = {
+    width:msg.width, height:msg.height,
+    resolution:msg.resolution,
+    origin_x:msg.origin_x, origin_y:msg.origin_y
+  };
+  const img=new Image();
+  img.onload = () => { state.mapImage=img; };
+  img.src=`data:image/png;base64,${msg.png_b64}`;
+  $('map-meta').textContent=`${mapSourceLabel(state.mapSource)} · ${msg.width}×${msg.height}  ${msg.resolution} m/cell`;
+  updateMapSourceButtons();
+}
+
+function onScan(msg) {
+  state.scanPoints[msg.vehicle_id] = msg.points;
+  renderMap();
+}
+
+function onMapSourceChanged(msg) {
+  const src = msg.source;
+  state.mapSource = src;
+  updateMapSourceButtons();
+  showToast(`지도 소스: ${mapSourceLabel(src)}`);
+}
+
+function setMapSource(src) {
+  send({cmd: 'set_map_source', source: src});
+}
+
+function loadSavedMap() {
+  send({cmd:'load_saved_map'});
+  setMapSource('map_static');
+}
+
+function vehicleMapSource() {
+  // 공유 맵 모델: 전 차량이 하나의 /map(SLAM 매핑 / map_server 분배)을 공유.
+  // 실시간 맵은 항상 'map' 소스. 차량 구분은 per-vehicle 포즈/스캔 마커로.
+  return 'map';
+}
+
+function setSelectedVehicleMapSource() {
+  setMapSource(vehicleMapSource());
+}
+
+function mapSourceLabel(src) {
+  if (src === 'map_static') return '전체맵/저장맵';
+  if (src === 'map') return '공용 SLAM맵';
+  if (src === 'aip1') return 'aip1 맵';
+  if (src === 'aip2') return 'aip2 맵';
+  if (src === 'aip3') return 'aip3 맵';
+  return src || '지도';
+}
+
+function onMapLoaded(msg) {
+  if (msg.ok) showToast('🗺 저장맵을 전체맵으로 불러왔습니다.');
+  else showToast(`⚠ 저장맵 불러오기 실패: ${msg.detail||''}`, true);
+}
+
+function updateMapSourceButtons() {
+  $('mapsrc-static').classList.toggle('active', state.mapSource === 'map_static');
+  $('mapsrc-slam').classList.toggle('active', state.mapSource === vehicleMapSource());
+}
+
+function onMapSourceChanged(msg) {
+  const src = msg.source;
+  $('mapsrc-static').classList.toggle('active', src === 'map_static');
+  $('mapsrc-slam').classList.toggle('active', src === 'map');
+  showToast(src === 'map_static' ? '🗺 전체 공유맵으로 전환' : '🔍 SLAM 탐색맵으로 전환');
+}
+
+function setMapSource(src) {
+  if (src !== state.mapSource) { state.mapImage = null; state.mapMeta = null; }  // 소스 전환 시 직전(타차량) 맵 잔상 제거
+  state.mapSource = src;
+  send({cmd: 'set_map_source', source: src});
+}
+
+// 대시보드 맵 표시 초기화(누적/이전 맵 제거). 백엔드 reset_map 으로 캐시·SLAM 도 리셋 시도.
+function clearMap() {
+  state.mapImage = null; state.mapMeta = null;
+  state.scanPoints = {};
+  send({cmd: 'reset_map', vehicle_id: state.selectedVehicle});
+  showToast('🗑 맵 표시 초기화');
+}
+
+function onMapReady(msg) {
+  $('map-ready').textContent = msg.value ? 'MAP READY' : 'MAP WAIT';
+  $('map-ready').className   = msg.value ? 'badge ok' : 'badge';
+}
+
+function onVision(msg) {
+  const dataUrl=`data:${msg.mime};base64,${msg.data_b64}`;
+  if (msg.source==='thermal') {
+    state.thermalVision[msg.vehicle_id]=dataUrl;
+  } else {
+    state.vision[msg.vehicle_id]=dataUrl;
+  }
+  renderVision();
+}
+
+function onVisionStreams(msg) {
+  state.visionStreams = msg.streams || {};
+  renderVision();
+}
+
+function onThermalStreams(msg) {
+  state.thermalStreams = msg.streams || {};
+  renderVision();
+}
+
+function pollMsValue(value, maxMs) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (n <= 0) return 0;
+  return clamp(n, 80, maxMs);
+}
+
+function onVisionConfig(msg) {
+  const common = pollMsValue(msg.poll_ms ?? msg.vision_poll_ms, 3000);
+  const rgb = pollMsValue(msg.rgb_poll_ms, 2000);
+  const thermal = pollMsValue(msg.thermal_poll_ms, 3000);
+  if (!state.visionPollQuery.rgb) {
+    if (rgb !== null) state.visionPollMs = rgb;
+    else if (common !== null) state.visionPollMs = pollMsValue(common, 2000);
+  }
+  if (!state.visionPollQuery.thermal) {
+    if (thermal !== null) state.thermalPollMs = thermal;
+    else if (common !== null) state.thermalPollMs = common;
+  }
+  renderVision();
+}
+
+function onPatrolPlan(msg) {
+  if (msg.vehicles) state.plannerWps = msg.vehicles;
+  renderWpList();
+}
+
+function onCoverageTotal(msg) {
+  const v = typeof msg.value==='number' ? msg.value : parseFloat(msg.value)||0;
+  state.coverageTotal = v;
+  const pct = (v*100).toFixed(1);
+  $('cov-fill').style.width=`${clamp(v*100,0,100)}%`;
+  $('cov-pct').textContent=`${pct}%`;
+  renderCovDetail();
+}
+
+function onCoveragePerVehicle(msg) {
+  state.coveragePerVehicle = msg.data||{};
+  renderCovDetail();
+}
+
+function onBagState(msg) {
+  state.recording = msg.recording;
+  const btn = $('rec-btn');
+  const bbtn = $('bag-btn');
+  if (msg.recording) {
+    btn.classList.add('active');
+    btn.textContent='● REC';
+    if (bbtn) { bbtn.textContent='● 녹화 중...'; bbtn.style.opacity='.6'; }
+    $('bag-status').textContent=`녹화 중: ${msg.name}`;
+  } else {
+    btn.classList.remove('active');
+    btn.textContent='● REC';
+    if (bbtn) { bbtn.textContent='● 녹화 시작'; bbtn.style.opacity=''; }
+    $('bag-status').textContent='녹화 중 아님';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Rendering helpers
+// ══════════════════════════════════════════════════════════════
+const _vcardKeys = {};
+
+function renderVehicles() {
+  const online = VEHICLES.filter(id=>!state.offline.has(id)&&state.vehicles[id]);
+  $('online-count').textContent=`${online.length} online`;
+  $('online-count').className=online.length?'badge ok':'badge';
+
+  // DOM 교체는 데이터가 실제로 바뀔 때만 — mousedown/click 레이스 컨디션 방지
+  const anyChanged = VEHICLES.some(id => {
+    const v = state.vehicles[id]||{};
+    const k = [
+      state.offline.has(id)||!state.vehicles[id] ? 'off':'on',
+      (v.battery==null?'na':(+v.battery).toFixed(0)),
+      (+(v.cpu||0)).toFixed(0),
+      v.state||'FAULT',
+      id===state.selectedVehicle?'sel':'',
+      (state.thermal[id]!=null ? state.thermal[id].toFixed(1) : ''),
+      (state.odom[id]||{}).speed?.toFixed(2)||'0',
+      (state.odom[id]||{}).dist?.toFixed(0)||'0',
+      state.displayPoses[id]
+        ? `${state.displayPoses[id].x.toFixed(2)},${state.displayPoses[id].y.toFixed(2)},${(state.displayPoses[id].source||'').split('+')[0]}`
+        : '',
+      state.poseCalibrations[id]?'cal':'',
+      (v.behaviors||[]).slice(0,3).join(','),
+    ].join('|');
+    if (k !== _vcardKeys[id]) { _vcardKeys[id]=k; return true; }
+    return false;
+  });
+  if (!anyChanged && $('vlist').children.length) return;
+
+  $('vlist').innerHTML=VEHICLES.map(id=>{
+    const v = state.vehicles[id]||{id,state:'FAULT',battery:0,cpu:0,behaviors:[]};
+    const off = state.offline.has(id)||!state.vehicles[id];
+    const hasBat = (v.battery != null && !isNaN(+v.battery));   // 배터리 모듈 보유 차량만
+    const bat = hasBat ? clamp(+v.battery,0,100) : 0;
+    const cpu = clamp(+(v.cpu||0),0,100);
+    const odom = state.odom[id]||{speed:0,dist:0};
+    const temp = state.thermal[id]!=null ? `${state.thermal[id].toFixed(1)}°C` : '--';
+    const pos = state.displayPoses[id]
+      ? `(${state.displayPoses[id].x.toFixed(2)}, ${state.displayPoses[id].y.toFixed(2)})`
+      : '--';
+    const poseSource = state.displayPoses[id]?.source || (state.displayPoses[id] ? 'tf' : '--');
+    const poseBase = poseSource.split('+')[0];
+    const poseHint = poseBase === 'odom'
+      ? '상대 odom: 부팅/수동 이동 기준이라 실제 지도 위치와 다를 수 있음'
+      : poseBase === 'tf'
+        ? 'TF/map: map -> base_link 기준'
+        : 'pose 없음';
+    const calTag = state.poseCalibrations[id] ? '<span class="tag">cal</span>' : '';
+    const batC = !hasBat?'var(--muted)':bat>50?'var(--green)':bat>20?'var(--orange)':'var(--red)';
+    const cpuC = cpu<65?'var(--blue)':cpu<85?'var(--orange)':'var(--red)';
+    const spd = odom.speed>0.05 ? `${odom.speed.toFixed(2)}m/s` : '정지';
+    const spdC = odom.speed>0.05?'var(--blue)':'var(--muted)';
+    const tags = (v.behaviors||[]).slice(0,3).map(b=>`<span class="tag">${b}</span>`).join('');
+    const sel = id===state.selectedVehicle?'selected':'';
+    return `<article class="vcard ${off?'offline':''} ${sel}" data-vid="${id}">
+      <div class="vhead">
+        <span class="vid"><span class="dot" style="background:${COLORS[id]||'#94a3b8'}"></span>${id}</span>
+        <span class="stt ${v.state}">${off?'OFFLINE':v.state}</span>
+      </div>
+      <div class="metric" ${hasBat?'':'title="배터리 모니터링 모듈 없음"'}>
+        <span>BAT</span>
+        <div class="bar"><span style="width:${hasBat?bat:0}%;background:${batC}"></span></div>
+        <strong>${hasBat?bat.toFixed(0)+'%':'N/A'}</strong>
+      </div>
+      <div class="metric">
+        <span>CPU</span>
+        <div class="bar"><span style="width:${cpu}%;background:${cpuC}"></span></div>
+        <strong>${cpu.toFixed(0)}%</strong>
+      </div>
+      <div class="vrow">
+        <span class="spd" style="color:${spdC}">${spd}</span>
+        <span>${odom.dist.toFixed(0)}m 이동</span>
+        <span>열:${temp}</span>
+      </div>
+      <div class="vrow">
+        <span style="font-size:10px;color:var(--muted)">${pos}</span>
+        <span class="tag" title="${poseHint}">pose:${poseSource}</span>
+        ${calTag}
+      </div>
+      ${tags?`<div class="tags">${tags}</div>`:''}
+    </article>`;
+  }).join('');
+}
+
+function renderAlerts() {
+  const feed=$('alert-feed');
+  if (!state.alerts.length) { feed.innerHTML=`<div class="empty">활성 알림 없음</div>`; return; }
+  feed.innerHTML=state.alerts.slice(0,40).map(a=>`
+    <div class="alert-item ${a.level==='HIGH'?'high':''}">
+      <div class="alert-head"><span>${a.vehicle_id}</span><span>${a.level}</span></div>
+      <div style="font-size:11px">${a.max_temp}°C · 지도 (${a.map_x}, ${a.map_y})</div>
+      <div class="muted">${a.ts} · 신뢰도 ${(a.confidence*100).toFixed(0)}%</div>
+    </div>`).join('');
+}
+
+function renderLock() {
+  const el=$('lock-box');
+  reconcileControlLocks();
+  const lock=(state.lockState||{})[state.selectedVehicle];
+  if (!lock)                                { el.textContent='제어 락 없음'; el.className='lock-box'; }
+  else if (lock.operator_id===OPERATOR_ID)  { el.textContent=`내 제어권 활성 · ${state.selectedVehicle}`; el.className='lock-box own'; }
+  else                                       { el.textContent=`다른 작업자: ${lock.operator_id}`; el.className='lock-box foreign'; }
+}
+
+function renderWpList() {
+  const wps = (state.plannerWps[state.selectedVehicle])||[];
+  const el=$('wp-list');
+  if (!wps.length) { el.innerHTML=`<div class="empty">웨이포인트 없음</div>`; return; }
+  el.innerHTML=wps.map((wp,i)=>`
+    <div class="wp-row">
+      <span class="wp-idx">${i+1}</span>
+      <span>x${(+wp[0]).toFixed(2)} y${(+wp[1]).toFixed(2)} yaw${(+wp[2]||0).toFixed(0)}°</span>
+      <button class="wp-del" onclick="wpDeleteIdx(${i})">✕</button>
+    </div>`).join('');
+}
+
+function renderCovDetail() {
+  const el=$('cov-detail');
+  const total = (state.coverageTotal*100).toFixed(1);
+  let html=`<div class="cov-row"><span style="width:50px">전체</span>
+    <div class="cov-bar"><div class="cov-fill" style="width:${clamp(state.coverageTotal*100,0,100)}%"></div></div>
+    <span style="width:36px;text-align:right">${total}%</span></div>`;
+  for (const [vid,val] of Object.entries(state.coveragePerVehicle||{})) {
+    const pct=(+val*100).toFixed(1);
+    html+=`<div class="cov-row">
+      <span style="width:50px;color:${COLORS[vid]||'var(--muted)'}">${vid}</span>
+      <div class="cov-bar"><div class="cov-fill" style="width:${clamp(+val*100,0,100)}%;background:${COLORS[vid]||'var(--blue)'}"></div></div>
+      <span style="width:36px;text-align:right">${pct}%</span></div>`;
+  }
+  el.innerHTML=html;
+}
+
+function validVisionBbox(box) {
+  return box && Number.isFinite(+box.x) && Number.isFinite(+box.y) &&
+    Number.isFinite(+box.w) && Number.isFinite(+box.h) && +box.w > 0 && +box.h > 0;
+}
+
+function latestVisionBbox(vid) {
+  for (const alert of state.alerts) {
+    if (alert.vehicle_id === vid && validVisionBbox(alert.bbox)) {
+      return {alert, box:alert.bbox};
+    }
+  }
+  return null;
+}
+
+function bboxSourceSize(img, box) {
+  const naturalW = Math.max(1, img.naturalWidth || 0);
+  const naturalH = Math.max(1, img.naturalHeight || 0);
+  let sourceW = naturalW || 640;
+  let sourceH = naturalH || 480;
+  if ((+box.x + +box.w) > sourceW || (+box.y + +box.h) > sourceH) {
+    sourceW = Math.max(sourceW, 640, +box.x + +box.w);
+    sourceH = Math.max(sourceH, 480, +box.y + +box.h);
+  }
+  return {sourceW, sourceH};
+}
+
+function renderVisionOverlay() {
+  const overlay = $('vision-a-overlay');
+  if (!overlay) return;
+  overlay.innerHTML = '';
+
+  const img = $('vision-a');
+  if (!img || img.tagName !== 'IMG') return;
+
+  const hit = latestVisionBbox(state.selectedVision);
+  if (!hit) return;
+
+  const rect = overlay.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  const box = hit.box;
+  const {sourceW, sourceH} = bboxSourceSize(img, box);
+  const scale = Math.min(rect.width / sourceW, rect.height / sourceH);
+  const drawW = sourceW * scale;
+  const drawH = sourceH * scale;
+  const offX = (rect.width - drawW) / 2;
+  const offY = (rect.height - drawH) / 2;
+
+  const x = offX + clamp(+box.x, 0, sourceW) * scale;
+  const y = offY + clamp(+box.y, 0, sourceH) * scale;
+  const w = Math.max(2, Math.min(+box.w, sourceW - +box.x) * scale);
+  const h = Math.max(2, Math.min(+box.h, sourceH - +box.y) * scale);
+
+  const el = document.createElement('div');
+  el.className = `vision-bbox ${hit.alert.level === 'HIGH' ? 'high' : ''}`;
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  el.style.width = `${w}px`;
+  el.style.height = `${h}px`;
+
+  const label = document.createElement('span');
+  label.className = 'vision-bbox-label';
+  const pct = Number.isFinite(+hit.alert.confidence) ? `${Math.round(+hit.alert.confidence * 100)}%` : '';
+  label.textContent = [hit.alert.level || 'ALERT', pct].filter(Boolean).join(' ');
+  el.appendChild(label);
+  overlay.appendChild(el);
+}
+
+function visionPollSource(src) {
+  const sep = src.includes('?') ? '&' : '?';
+  return `${src}${sep}_t=${Date.now()}`;
+}
+
+function clearVisionPollTimer(id) {
+  if (state.visionPollTimers[id]) {
+    clearTimeout(state.visionPollTimers[id]);
+    delete state.visionPollTimers[id];
+  }
+}
+
+function stopVisionPoll(id) {
+  clearVisionPollTimer(id);
+  state.visionPollTokens[id] = (state.visionPollTokens[id] || 0) + 1;
+}
+
+function visionPollDelay(id) {
+  if (id === 'vision-b') return state.thermalPollMs || state.visionPollMs;
+  return state.visionPollMs;
+}
+
+function startVisionPoll(id, src, onFrame) {
+  stopVisionPoll(id);
+  const delay = visionPollDelay(id);
+  if (!src || delay <= 0) return;
+  const ms = clamp(delay, 80, 3000);
+  const token = (state.visionPollTokens[id] || 0) + 1;
+  state.visionPollTokens[id] = token;
+  const schedule = () => {
+    if (state.visionPollTokens[id] !== token) return;
+    clearVisionPollTimer(id);
+    state.visionPollTimers[id] = setTimeout(tick, ms);
+  };
+  const tick = () => {
+    const img = $(id);
+    if (!img || img.tagName !== 'IMG') {
+      stopVisionPoll(id);
+      return;
+    }
+    const next = new Image();
+    next.onload = () => {
+      if (state.visionPollTokens[id] !== token) return;
+      const freshSrc = next.src;
+      img.src = freshSrc;
+      if (onFrame) onFrame();
+      schedule();
+    };
+    next.onerror = schedule;
+    next.src = visionPollSource(src);
+  };
+  tick();
+}
+
+function setVisionImage(id, src, alt, onFrame) {
+  $(id).outerHTML = `<img id="${id}" alt="${attr(alt)}">`;
+  const img = $(id);
+  if (img && img.tagName === 'IMG') {
+    if (visionPollDelay(id) > 0) {
+      startVisionPoll(id, src, onFrame);
+    } else {
+      img.onload = onFrame || null;
+      img.src = src;
+    }
+  }
+  return img;
+}
+
+function renderVision() {
+  $('vision-label-a').textContent=state.selectedVision;
+  const liveStream=state.visionStreams[state.selectedVision];
+  const sel=liveStream || state.vision[state.selectedVision];
+  const va=$('vision-a');
+  if (sel) setVisionImage('vision-a', sel, 'vision', renderVisionOverlay);
+  else if (!va.classList||!va.classList.contains('vision-empty'))
+    document.getElementById('vision-a').outerHTML=`<div id="vision-a" class="vision-empty">비전 프레임 대기</div>`;
+  const imgA=$('vision-a');
+  if (imgA && imgA.tagName === 'IMG') {
+    if (visionPollDelay('vision-a') <= 0) imgA.onload = renderVisionOverlay;
+    if (imgA.complete) renderVisionOverlay();
+    setTimeout(renderVisionOverlay, 80);
+  } else {
+    renderVisionOverlay();
+  }
+
+  // slot-b: 선택 차량 열화상 (없으면 탐지 알림 차량 열화상)
+  const thVid=state.selectedVision;
+  const thermalStream=state.thermalStreams[thVid];
+  // 선택 차량 소유 열화상만 — 크로스-차량 폴백 제거(aip1 열화상이 타 차량에 새던 문제)
+  const thSrc=thermalStream || state.thermalVision[thVid] || null;
+  const vb=$('vision-b');
+  if ($('vision-label-b')) $('vision-label-b').textContent=`열화상 · ${thVid}`;
+  if (thSrc) setVisionImage('vision-b', thSrc, 'thermal vision');
+  else if (!vb.classList||!vb.classList.contains('vision-empty'))
+    document.getElementById('vision-b').outerHTML=`<div id="vision-b" class="vision-empty">열화상 대기</div>`;
+
+  // 확대 모달이 열려있으면 라이브로 갱신
+  if (state.visionModal==='a' && sel) {
+    $('vision-modal-img').src=visionPollDelay('vision-a') > 0 ? visionPollSource(sel) : sel;
+    $('vision-modal-label').textContent=`📹 ${state.selectedVision}`;
+  } else if (state.visionModal==='b' && thSrc) {
+    $('vision-modal-img').src=visionPollDelay('vision-b') > 0 ? visionPollSource(thSrc) : thSrc;
+    $('vision-modal-label').textContent=`🌡 ${thVid} · 열화상`;
+  }
+}
+
+// ══ RGB+열화상 정합 오버레이 (대시보드 클라이언트 합성) ══════════════
+//  박스 A의 RGB <img> 위에 박스 B의 열화상 <img>를 cal 변환으로 합성.
+//  열화상은 ROS(thermal_viz)·RGB는 web_preview MJPEG — 두 경로를 캔버스에서 정합.
+const OVL_DEFAULT={dx:0,dy:0,scale:1,rotation:0,alpha:0.55,edge:0,skew_x:0,skew_y:0};
+const OVL_FIELDS=[['alpha',0,1,0.01],['scale',0.5,2,0.01],['rotation',-180,180,1],
+  ['dx',-320,320,1],['dy',-240,240,1],['skew_x',-0.35,0.35,0.01],['skew_y',-0.35,0.35,0.01],['edge',-0.4,0.4,0.01]];
+
+function overlayCalFor(vid){
+  try{const s=localStorage.getItem('aip_ovl_cal_'+vid); if(s) return {...OVL_DEFAULT,...JSON.parse(s)};}catch(e){}
+  return {...OVL_DEFAULT};
+}
+function saveOverlayCal(vid,cal){ try{localStorage.setItem('aip_ovl_cal_'+vid,JSON.stringify(cal));}catch(e){} }
+
+function toggleOverlay(){
+  state.overlayOn=!state.overlayOn;
+  state.overlayCalVid=state.selectedVision;
+  state.overlayCal=overlayCalFor(state.selectedVision);
+  const c=$('vision-a-canvas'),bt=$('overlay-toggle'),mt=$('overlay-mode-toggle'),ct=$('overlay-cal-toggle');
+  if(state.overlayOn){
+    if(c) c.style.display='block';
+    if(bt) bt.classList.add('active');
+    if(mt) mt.style.display='';
+    if(ct) ct.style.display='';
+    updateOverlayModeBtn();
+    if(!state.overlayRaf) state.overlayRaf=requestAnimationFrame(drawOverlayFrame);
+  }else{
+    if(c) c.style.display='none';
+    if(bt) bt.classList.remove('active');
+    if(mt) mt.style.display='none';
+    if(ct) ct.style.display='none';
+    const p=$('overlay-cal'); if(p) p.style.display='none';
+    if(state.overlayRaf){cancelAnimationFrame(state.overlayRaf);state.overlayRaf=null;}
+  }
+}
+// 모드: 'markers'(기본, 최고/최저온 심부 마커만 — RGB 선명) ↔ 'blend'(열상 알파 합성)
+function toggleOverlayMode(){
+  state.overlayMode = (state.overlayMode==='markers') ? 'blend' : 'markers';
+  updateOverlayModeBtn();
+}
+function updateOverlayModeBtn(){
+  const mt=$('overlay-mode-toggle'); if(!mt) return;
+  if(state.overlayMode==='blend'){ mt.textContent='🔥 합성'; mt.classList.add('active'); }
+  else { mt.textContent='🌡 온도'; mt.classList.remove('active'); }
+}
+function onThermalSpots(msg){ if(msg && msg.vehicle_id) state.thermalSpots[msg.vehicle_id]=msg; }
+function onMappingStatus(msg){
+  const st=msg.state;
+  const el=$('mapping-status-line');
+  if(st==='error'){ showToast(`⚠ ${msg.detail||'중앙 스택 오류'}`, true); if(el) el.textContent=`⚠ ${msg.detail||'오류'}`; return; }
+  const lbl={mapping:'🟢 매핑 진행 중', localizing:'🟢 로컬라이제이션 진행 중', idle:'○ 중앙 스택 정지'}[st]||st;
+  if(el) el.textContent=`${lbl}${msg.mode&&st!=='idle'?` (${msg.mode})`:''}`;
+}
+function toggleOverlayCal(){
+  const p=$('overlay-cal'); if(!p) return;
+  const open=(p.style.display==='none'||!p.style.display);
+  p.style.display=open?'block':'none';
+  if(open) buildOverlayCalPanel();
+}
+function buildOverlayCalPanel(){
+  const p=$('overlay-cal'); if(!p) return;
+  p.innerHTML=OVL_FIELDS.map(([k,mn,mx,st])=>
+    `<div style="display:flex;align-items:center;gap:6px;margin:2px 0;font-size:11px">`
+    +`<span style="min-width:58px">${k}</span>`
+    +`<input type="range" id="ovl-${k}" min="${mn}" max="${mx}" step="${st}" value="${state.overlayCal[k]}" oninput="onOvlSlider('${k}',this.value)" style="flex:1">`
+    +`<strong id="ovl-${k}-v" style="min-width:40px;text-align:right">${(+state.overlayCal[k]).toFixed(2)}</strong></div>`).join('')
+   +`<div style="display:flex;gap:6px;margin-top:5px">`
+    +`<button class="btn-gray" style="flex:1" onclick="resetOverlayCal()">리셋</button>`
+    +`<button class="btn-blue" style="flex:1" onclick="saveOverlayCalNow()">💾 저장</button></div>`
+   +`<div class="joystick-hint" style="margin-top:4px">scale=시야각 매칭 · dx/dy=오프셋 · rotation/skew=기울기 · edge=왜곡 · alpha=투명도 · 차량별 저장</div>`;
+}
+function onOvlSlider(k,v){ state.overlayCal[k]=Number(v); const el=$('ovl-'+k+'-v'); if(el) el.textContent=Number(v).toFixed(2); }
+function resetOverlayCal(){ state.overlayCal={...OVL_DEFAULT}; buildOverlayCalPanel(); }
+function saveOverlayCalNow(){ saveOverlayCal(state.selectedVision,state.overlayCal); showToast('✓ 정합값 저장: '+state.selectedVision); }
+
+function syncOverlayVehicle(){
+  if(state.overlayCalVid===state.selectedVision) return;
+  state.overlayCalVid=state.selectedVision;
+  state.overlayCal=overlayCalFor(state.selectedVision);
+  const p=$('overlay-cal'); if(p && p.style.display!=='none') buildOverlayCalPanel();
+}
+
+function ovlMapPoint(u,v,tw,th,cal){
+  let x=(u-.5)*tw,y=(v-.5)*th;
+  const nx=x/(tw/2||1),ny=y/(th/2||1),r2=nx*nx+ny*ny,f=1+(cal.edge||0)*r2;
+  return {x:x*f+(cal.skew_x||0)*ny*tw/2, y:y*f+(cal.skew_y||0)*nx*th/2};
+}
+function ovlDrawWarped(ctx,img,tw,th,cal){
+  const cols=20,rows=15,iw=img.naturalWidth,ih=img.naturalHeight;
+  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+    const u0=i/cols,v0=j/rows,u1=(i+1)/cols,v1=(j+1)/rows;
+    const a=ovlMapPoint(u0,v0,tw,th,cal),b=ovlMapPoint(u1,v1,tw,th,cal),c=ovlMapPoint(u0,v1,tw,th,cal),d=ovlMapPoint(u1,v0,tw,th,cal);
+    const dx=Math.min(a.x,b.x,c.x,d.x),dy=Math.min(a.y,b.y,c.y,d.y),dw=Math.max(a.x,b.x,c.x,d.x)-dx,dh=Math.max(a.y,b.y,c.y,d.y)-dy;
+    ctx.drawImage(img,u0*iw,v0*ih,(u1-u0)*iw,(v1-v0)*ih,dx,dy,dw+1,dh+1);
+  }
+}
+function drawOverlayFrame(){
+  if(!state.overlayOn){state.overlayRaf=null;return;}
+  // 소스가 ~8fps라 60fps 합성은 낭비 → ~15fps로 스로틀(클라이언트 CPU 절감)
+  const now=(window.performance&&performance.now)?performance.now():Date.now();
+  if(now-(state._ovlLast||0) < 66){ state.overlayRaf=requestAnimationFrame(drawOverlayFrame); return; }
+  state._ovlLast=now;
+  syncOverlayVehicle();
+  const rgb=$('vision-a'),thermal=$('vision-b');
+  // 박스 A 합성
+  const canvas=$('vision-a-canvas');
+  if(canvas&&rgb&&rgb.tagName==='IMG'&&rgb.naturalWidth){
+    const pbox=canvas.parentElement.getBoundingClientRect();
+    const W=Math.max(2,Math.round(pbox.width)),H=Math.max(2,Math.round(pbox.height));
+    if(canvas.width!==W) canvas.width=W;
+    if(canvas.height!==H) canvas.height=H;
+    compositeOverlay(canvas, rgb, thermal);
+  }
+  // 확대 모달 합성('a' 열려있을 때 — 마커/블렌딩 동일 적용)
+  if(state.visionModal==='a'){
+    const mc=$('vision-modal-canvas');
+    if(mc && mc.style.display!=='none' && rgb && rgb.naturalWidth){
+      if(!mc.width||!mc.height) sizeModalCanvas();
+      compositeOverlay(mc, rgb, thermal);
+    }
+  }
+  state.overlayRaf=requestAnimationFrame(drawOverlayFrame);
+}
+// RGB 위에 열상 마커(기본) 또는 알파 합성(옵션)을 그리는 공용 함수 — 박스 A·확대 모달 공유
+function compositeOverlay(canvas, rgb, thermal){
+  if(!canvas||!canvas.getContext||!rgb||rgb.tagName!=='IMG'||!rgb.naturalWidth) return;
+  const W=canvas.width,H=canvas.height;
+  const ctx=canvas.getContext('2d');
+  ctx.globalAlpha=1; ctx.fillStyle='#050505'; ctx.fillRect(0,0,W,H);
+  const rs=Math.min(W/rgb.naturalWidth,H/rgb.naturalHeight);
+  const rw=rgb.naturalWidth*rs,rh=rgb.naturalHeight*rs,rx=(W-rw)/2,ry=(H-rh)/2;
+  ctx.drawImage(rgb,rx,ry,rw,rh);
+  const cal=state.overlayCal||OVL_DEFAULT;
+  // dx/dy 는 RGB 네이티브 px 기준 → 표시배율(rs)로 스케일 → 해상도 무관(박스↔모달 일관)
+  const cx=rx+rw/2+(cal.dx||0)*rs, cy=ry+rh/2+(cal.dy||0)*rs;
+  const tw=rw*(cal.scale||1), th=rh*(cal.scale||1);
+  if(state.overlayMode==='blend' && thermal && thermal.tagName==='IMG' && thermal.naturalWidth){
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate((cal.rotation||0)*Math.PI/180);
+    ctx.globalAlpha=(cal.alpha==null?0.55:cal.alpha);
+    if(Math.abs(cal.edge||0)>.001||Math.abs(cal.skew_x||0)>.001||Math.abs(cal.skew_y||0)>.001) ovlDrawWarped(ctx,thermal,tw,th,cal);
+    else ctx.drawImage(thermal,-tw/2,-th/2,tw,th);
+    ctx.restore();
+    ctx.globalAlpha=1;
+  } else {
+    const sp=state.thermalSpots[state.selectedVision];
+    if(sp){
+      const ang=(cal.rotation||0)*Math.PI/180, ca=Math.cos(ang), sa=Math.sin(ang);
+      const toWorld=(u,v)=>{ const lp=ovlMapPoint(u,v,tw,th,cal); return {x:cx+lp.x*ca-lp.y*sa, y:cy+lp.x*sa+lp.y*ca}; };
+      const k=Math.max(1, W/340);  // 해상도 비례 마커 크기(확대 시 커짐)
+      if(sp.cold) drawSpotMarker(ctx, toWorld(sp.cold.u,sp.cold.v), sp.cold.c, '#38bdf8', '최저', k);
+      if(sp.hot)  drawSpotMarker(ctx, toWorld(sp.hot.u, sp.hot.v),  sp.hot.c,  '#ef4444', '최고', k);
+    }
+  }
+}
+function sizeModalCanvas(){
+  const rgb=$('vision-a'),mc=$('vision-modal-canvas');
+  if(!mc||!rgb||!rgb.naturalWidth) return;
+  const k=Math.min(3, Math.max(1, 1080/rgb.naturalHeight));  // 내부 해상도 ~1080p 높이
+  mc.width=Math.round(rgb.naturalWidth*k);
+  mc.height=Math.round(rgb.naturalHeight*k);
+}
+function drawSpotMarker(ctx, p, tempC, color, label, k){
+  k=k||1;
+  const r=9*k, dot=3*k, fs=Math.round(12*k), pad=4*k, bh=fs+6*k;
+  ctx.save();
+  ctx.lineWidth=2*k; ctx.strokeStyle=color;
+  ctx.beginPath(); ctx.moveTo(p.x-r,p.y); ctx.lineTo(p.x+r,p.y); ctx.moveTo(p.x,p.y-r); ctx.lineTo(p.x,p.y+r); ctx.stroke();
+  ctx.beginPath(); ctx.arc(p.x,p.y,dot,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+  const txt=`${label} ${Number(tempC).toFixed(1)}°C`;
+  ctx.font=`bold ${fs}px system-ui,sans-serif`; ctx.textBaseline='middle';
+  const tw2=ctx.measureText(txt).width;
+  let lx=p.x+r+pad; const ly=p.y;
+  if(lx+tw2+pad+2>ctx.canvas.width) lx=p.x-r-pad-tw2-pad;
+  ctx.fillStyle='rgba(15,23,42,.82)'; ctx.fillRect(lx-pad/2, ly-bh/2, tw2+pad, bh);
+  ctx.fillStyle=color; ctx.fillText(txt, lx, ly+1);
+  ctx.restore();
+}
+
+// ── 카메라 확대 라이트박스 ──────────────────────────────────────────
+function openVisionModal(which) {
+  let src, label;
+  const mi=$('vision-modal-img'), mc=$('vision-modal-canvas');
+  if (which==='a') {
+    const liveStream=state.visionStreams[state.selectedVision];
+    src=liveStream || state.vision[state.selectedVision];
+    label=`📹 ${state.selectedVision}`;
+    if (state.overlayOn && src) {
+      // 오버레이 ON → 합성 캔버스로 확대(온도 마커/열상 합성 포함)
+      sizeModalCanvas();
+      if(mc) mc.style.display='block';
+      if(mi) mi.style.display='none';
+      state.visionModal='a';
+      $('vision-modal-label').textContent=`📹 ${state.selectedVision} · ${state.overlayMode==='blend'?'열상합성':'온도마커'}`;
+      $('vision-modal').classList.add('open');
+      return;
+    }
+  } else {
+    const thVid2=state.selectedVision;
+    const thermalStream=state.thermalStreams[thVid2];
+    src=thermalStream || state.thermalVision[thVid2] || null;  // 선택 차량 소유 열화상만
+    label=`🌡 ${thVid2} · 열화상`;
+  }
+  if (!src) { showToast('⚠ 표시할 카메라 영상이 없습니다'); return; }
+  if(mc) mc.style.display='none';
+  if(mi) mi.style.display='';
+  state.visionModal=which;
+  $('vision-modal-img').src=src;
+  $('vision-modal-label').textContent=label;
+  $('vision-modal').classList.add('open');
+}
+
+function closeVisionModal() {
+  state.visionModal=null;
+  const mc=$('vision-modal-canvas'), mi=$('vision-modal-img');
+  if(mc) mc.style.display='none';
+  if(mi) mi.style.display='';
+  $('vision-modal').classList.remove('open');
+}
+
+function renderZoneList() {
+  const el=$('zone-list');
+  if (!state.keepoutZones.length) { el.innerHTML=`<div class="empty">구역 없음</div>`; return; }
+  el.innerHTML=state.keepoutZones.map((z,i)=>`
+    <div class="zone-row">
+      <span style="color:var(--red)">⛔ 구역 ${i+1} (${z.pts.length}점)</span>
+      <button class="btn-gray" style="min-height:22px;padding:1px 6px" onclick="deleteZone(${i})">✕</button>
+    </div>`).join('');
+}
+
+function renderDockInfo() {
+  const posEl = $('dock-pos');
+  if (!posEl) return;
+  const vid = ($('dock-vehicle-select')||{}).value || state.selectedVehicle;
+  const dock=state.dockPositions[vid];
+  posEl.textContent = dock
+    ? `x:${dock.x.toFixed(2)} y:${dock.y.toFixed(2)} yaw:${(dock.yaw_rad*180/Math.PI).toFixed(0)}°`
+    : '도킹 위치 미설정';
+}
+
+function renderPoseAlignInfo() {
+  const el = $('pose-align-status');
+  if (!el) return;
+  const vid = state.selectedVehicle;
+  const pose = state.displayPoses[vid] || state.targetPoses[vid];
+  const cal = state.poseCalibrations[vid];
+  const map = state.mapMeta;
+  const lines = [];
+  lines.push(`선택: ${vid}${state.offline.has(vid) ? ' · OFFLINE' : ''}`);
+  if (pose) {
+    const src = pose.source || state.targetPoses[vid]?.source || '--';
+    lines.push(`현재 표시: x ${pose.x.toFixed(2)}, y ${pose.y.toFixed(2)}, yaw ${(pose.yaw*180/Math.PI).toFixed(0)}° · pose:${src}`);
+  } else {
+    lines.push('현재 표시: pose 없음');
+  }
+  lines.push(cal ? '보정: 적용됨' : '보정: 없음');
+  if (map) lines.push(`지도: ${map.width}x${map.height}, ${map.resolution} m/cell`);
+  lines.push('보정 방법: 방향 슬라이더 설정 후 실제 차량 위치를 지도에서 클릭');
+  el.innerHTML = lines.map(x => `<div>${x}</div>`).join('');
+}
+
+function onPoseAlignYawChange() {
+  const el = $('pose-align-yaw');
+  const val = $('pose-align-yaw-val');
+  if (!el || !val) return;
+  if (state.mapMode === 'pose_align') drawAll();
+  val.textContent = `${el.value}°`;
+}
+
+function poseAlignYawRad() {
+  const el = $('pose-align-yaw');
+  return Number(el ? el.value : 0) * Math.PI / 180;
+}
+
+function useCurrentYawForPoseAlign() {
+  const pose = state.displayPoses[state.selectedVehicle] || state.targetPoses[state.selectedVehicle];
+  if (!pose) {
+    showToast(`⚠ ${state.selectedVehicle} pose가 아직 없어 현재 방향을 읽을 수 없습니다.`, true);
+    return;
+  }
+  const deg = Math.round((pose.yaw || 0) * 180 / Math.PI);
+  const normalized = ((deg + 180) % 360 + 360) % 360 - 180;
+  $('pose-align-yaw').value = normalized;
+  onPoseAlignYawChange();
+  showToast(`◎ 보정 방향: 현재 ${normalized}° 사용`);
+}
+
+function copyPoseYawToPatrolYaw() {
+  const poseYaw = $('pose-align-yaw');
+  const patrolYaw = $('patrol-yaw');
+  if (!poseYaw || !patrolYaw) return;
+  patrolYaw.value = poseYaw.value;
+  onPatrolYawChange();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  60fps Animation loop
+// ══════════════════════════════════════════════════════════════
+function lerpAngle(a, b, t) {
+  let d=b-a;
+  while(d>Math.PI)  d-=2*Math.PI;
+  while(d<-Math.PI) d+=2*Math.PI;
+  return a+d*t;
+}
+
+function interpolatePoses() {
+  for (const id of VEHICLES) {
+    const target=state.targetPoses[id];
+    if (!target) continue;
+    const cur=state.displayPoses[id];
+    if (!cur) { state.displayPoses[id]={...target}; continue; }
+    state.displayPoses[id]={
+      id,
+      x:   cur.x   + (target.x   - cur.x)   * SMOOTH,
+      y:   cur.y   + (target.y   - cur.y)   * SMOOTH,
+      yaw: lerpAngle(cur.yaw, target.yaw, SMOOTH),
+      source: target.source || cur.source,
+    };
+  }
+}
+
+function startAnimLoop() {
+  function frame() {
+    interpolatePoses();
+    drawAll();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Map drawing
+// ══════════════════════════════════════════════════════════════
+function drawAll() {
+  const cv=canvas();
+  const wrap=cv.parentElement;
+  const W=Math.max(200, wrap.clientWidth);
+  const H=Math.max(200, wrap.clientHeight);
+  if (cv.width!==W || cv.height!==H) { cv.width=W; cv.height=H; }
+
+  const ctx=cv.getContext('2d');
+  const dark=document.body.classList.contains('dark');
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=dark?'#0b1220':'#f1f5f9';
+  ctx.fillRect(0,0,W,H);
+
+  // Map image (uses view transform)
+  if (state.mapImage && state.mapMeta) {
+    ctx.save();
+    ctx.translate(view.tx, view.ty);
+    ctx.scale(view.scale, view.scale);
+    ctx.translate(0, H);
+    ctx.scale(1,-1);
+    const r = mapNaturalRect(W, H);   // 원본 비율 보존(레터박스) — 캔버스에 강제로 늘리지 않음
+    ctx.drawImage(state.mapImage, r.ox, r.oy, r.w, r.h);
+    ctx.restore();
+  } else {
+    // Grid fallback
+    ctx.strokeStyle=dark?'#1e2d45':'#dce4ef';
+    ctx.lineWidth=0.7;
+    for (let i=-12;i<=12;i+=2) {
+      const a=worldToScreen(i,-12), b=worldToScreen(i,12);
+      const c=worldToScreen(-12,i), d=worldToScreen(12,i);
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(c.x,c.y); ctx.lineTo(d.x,d.y); ctx.stroke();
+    }
+    ctx.strokeStyle=dark?'#2b3950':'#b6c3d4';
+    ctx.lineWidth=1;
+    const o=worldToScreen(0,0);
+    ctx.beginPath(); ctx.moveTo(o.x-15,o.y); ctx.lineTo(o.x+15,o.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(o.x,o.y-15); ctx.lineTo(o.x,o.y+15); ctx.stroke();
+  }
+
+  // Keepout zones (closed polygons)
+  for (const zone of state.keepoutZones) {
+    if (zone.pts.length<2) continue;
+    ctx.beginPath();
+    zone.pts.forEach((p,i)=>{ const s=worldToScreen(p.x,p.y); i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y); });
+    ctx.closePath();
+    ctx.fillStyle='rgba(185,28,28,.22)';
+    ctx.strokeStyle='rgba(185,28,28,.85)';
+    ctx.lineWidth=2;
+    ctx.fill(); ctx.stroke();
+  }
+
+  // Keepout draft (in-progress polygon)
+  if (state.keepoutDraft.length>0) {
+    ctx.beginPath();
+    state.keepoutDraft.forEach((p,i)=>{ const s=worldToScreen(p.x,p.y); i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y); });
+    ctx.strokeStyle='rgba(185,28,28,.9)';
+    ctx.lineWidth=2;
+    ctx.setLineDash([5,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Vertices
+    for (const p of state.keepoutDraft) {
+      const s=worldToScreen(p.x,p.y);
+      ctx.beginPath(); ctx.arc(s.x,s.y,5,0,Math.PI*2);
+      ctx.fillStyle='#b91c1c'; ctx.fill();
+    }
+    // First vertex highlight (close target)
+    if (state.keepoutDraft.length>=3) {
+      const fp=worldToScreen(state.keepoutDraft[0].x, state.keepoutDraft[0].y);
+      ctx.beginPath(); ctx.arc(fp.x,fp.y,9,0,Math.PI*2);
+      ctx.strokeStyle='#b91c1c'; ctx.lineWidth=2; ctx.stroke();
+    }
+  }
+
+  // Coverage rect drag preview (드래그 중 실시간 사각형 표시)
+  if (state.coverageRectDrag.active) {
+    const r=state.coverageRectDrag;
+    const s1=worldToScreen(r.x1,r.y1), s2=worldToScreen(r.x2,r.y2);
+    ctx.beginPath();
+    ctx.rect(Math.min(s1.x,s2.x),Math.min(s1.y,s2.y),Math.abs(s2.x-s1.x),Math.abs(s2.y-s1.y));
+    ctx.fillStyle='rgba(5,150,105,.10)';
+    ctx.strokeStyle='rgba(5,150,105,.9)';
+    ctx.lineWidth=2; ctx.setLineDash([5,3]);
+    ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // Confirmed coverage polygon (생성 후에도 반투명 초록 점선으로 유지)
+  if (state.coveragePolygon.length >= 3) {
+    ctx.beginPath();
+    state.coveragePolygon.forEach((p,i)=>{
+      const s=worldToScreen(p.x,p.y);
+      i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y);
+    });
+    ctx.closePath();
+    ctx.fillStyle='rgba(5,150,105,.07)';
+    ctx.strokeStyle='rgba(5,150,105,.55)';
+    ctx.lineWidth=2;
+    ctx.setLineDash([8,4]);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Coverage polygon draft (green, dashed — 수동 웨이포인트와 별개 레이어)
+  if (state.coverageDraft.length > 0) {
+    ctx.beginPath();
+    state.coverageDraft.forEach((p,i)=>{
+      const s=worldToScreen(p.x,p.y);
+      i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y);
+    });
+    if (state.coverageDraft.length>=3) ctx.closePath();
+    ctx.fillStyle='rgba(5,150,105,.12)';
+    ctx.strokeStyle='rgba(5,150,105,.9)';
+    ctx.lineWidth=2;
+    ctx.setLineDash([6,3]);
+    if (state.coverageDraft.length>=3) ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    for (const p of state.coverageDraft) {
+      const s=worldToScreen(p.x,p.y);
+      ctx.beginPath(); ctx.arc(s.x,s.y,5,0,Math.PI*2);
+      ctx.fillStyle='#059669'; ctx.fill();
+    }
+    if (state.coverageDraft.length>=3) {
+      const fp=worldToScreen(state.coverageDraft[0].x,state.coverageDraft[0].y);
+      ctx.beginPath(); ctx.arc(fp.x,fp.y,9,0,Math.PI*2);
+      ctx.strokeStyle='#059669'; ctx.lineWidth=2; ctx.stroke();
+    }
+  }
+
+  // Alert thermal circles
+  for (const a of state.alerts.slice(0,20)) {
+    const s=worldToScreen(+a.map_x, +a.map_y);
+    const r=clamp((+a.max_temp-20)*0.9,16,72);
+    const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,r);
+    g.addColorStop(0, a.level==='HIGH'?'rgba(185,28,28,.75)':'rgba(194,65,12,.65)');
+    g.addColorStop(1,'rgba(194,65,12,0)');
+    ctx.fillStyle=g;
+    ctx.beginPath(); ctx.arc(s.x,s.y,r,0,Math.PI*2); ctx.fill();
+  }
+
+  // Patrol waypoints
+  for (const vid of VEHICLES) {
+    const wps=state.plannerWps[vid]||[];
+    if (!wps.length) continue;
+    ctx.save();
+    ctx.strokeStyle=COLORS[vid]||'#475569';
+    ctx.fillStyle=COLORS[vid]||'#475569';
+    ctx.lineWidth=vid===state.selectedVehicle?2.5:1.5;
+    ctx.globalAlpha=vid===state.selectedVehicle?0.9:0.35;
+    if (state.coverageGenVids[vid]) {
+      // 커버리지 생성 WP: 행(row) 단위 선분만 (짝수→홀수 인덱스 쌍)
+      for (let i=0;i+1<wps.length;i+=2){
+        const s1=worldToScreen(+wps[i][0],+wps[i][1]);
+        const s2=worldToScreen(+wps[i+1][0],+wps[i+1][1]);
+        ctx.beginPath(); ctx.moveTo(s1.x,s1.y); ctx.lineTo(s2.x,s2.y); ctx.stroke();
+      }
+    } else {
+      ctx.beginPath();
+      wps.forEach((wp,i)=>{ const s=worldToScreen(+wp[0],+wp[1]); i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y); });
+      ctx.stroke();
+    }
+    wps.forEach((wp,i)=>{
+      const s=worldToScreen(+wp[0],+wp[1]);
+      ctx.beginPath(); ctx.arc(s.x,s.y,7,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='bold 9px Segoe UI';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(i+1, s.x, s.y);
+      ctx.fillStyle=COLORS[vid]||'#475569';
+    });
+    ctx.restore();
+  }
+
+  // LaserScan 포인트 — 선택차량맵 모드엔 해당 차량만(타차량 스캔 혼입 방지), 전체맵엔 전 차량.
+  const _scanIds = (state.mapSource === vehicleMapSource()) ? [state.selectedVehicle] : VEHICLES;
+  for (const id of _scanIds) {
+    const pts=state.scanPoints[id];
+    if (!pts||!pts.length) continue;
+    ctx.save();
+    ctx.fillStyle=COLORS[id]||'#475569';
+    for (const [mx,my] of pts) {
+      const s=worldToScreen(mx,my);
+      ctx.fillRect(s.x-1.5,s.y-1.5,3,3);
+    }
+    ctx.restore();
+  }
+
+  // Vehicle trails
+  for (const id of VEHICLES) {
+    const trail=state.trails[id]||[];
+    if (trail.length<2) continue;
+    ctx.beginPath();
+    trail.forEach((pt,i)=>{ const s=worldToScreen(pt.x,pt.y); i===0?ctx.moveTo(s.x,s.y):ctx.lineTo(s.x,s.y); });
+    ctx.strokeStyle=(COLORS[id]||'#475569')+'66';
+    ctx.lineWidth=1.5; ctx.stroke();
+  }
+
+  // Vehicle markers
+  for (const id of VEHICLES) {
+    const dp=state.displayPoses[id];
+    if (!dp) continue;
+    const s=worldToScreen(dp.x, dp.y);
+    const yaw=dp.yaw;
+    ctx.save();
+    ctx.translate(s.x,s.y);
+    ctx.rotate(-yaw);
+    ctx.fillStyle=COLORS[id]||'#475569';
+    // Arrow shape
+    ctx.beginPath();
+    ctx.moveTo(13,0); ctx.lineTo(-8,-7); ctx.lineTo(-5,0); ctx.lineTo(-8,7);
+    ctx.closePath();
+    ctx.fill();
+    // White outline for selected
+    if (id===state.selectedVehicle) {
+      ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(13,0); ctx.lineTo(-8,-7); ctx.lineTo(-5,0); ctx.lineTo(-8,7);
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.restore();
+    // Label
+    ctx.fillStyle=dark?'#e5eefb':'#0f172a';
+    ctx.font='bold 10px Segoe UI';
+    ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillText(`${id} · ${dp.source||'tf'}`, s.x+10, s.y-8);
+  }
+
+  // Pose-alignment heading preview for the selected vehicle.
+  if (state.mapMode === 'pose_align') {
+    const dp = state.displayPoses[state.selectedVehicle];
+    if (dp) {
+      const s = worldToScreen(dp.x, dp.y);
+      const yaw = poseAlignYawRad();
+      const deg = Math.round(yaw * 180 / Math.PI);
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(-yaw);
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = '#1d4ed8';
+      ctx.fillStyle = 'rgba(29,78,216,.16)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(28, 0); ctx.lineTo(-14, -11); ctx.lineTo(-8, 0); ctx.lineTo(-14, 11);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(29,78,216,.92)';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.font = 'bold 11px Segoe UI';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const label = `보정 yaw ${deg}°`;
+      ctx.strokeText(label, s.x + 18, s.y + 20);
+      ctx.fillText(label, s.x + 18, s.y + 20);
+      ctx.restore();
+    }
+  }
+
+  // 서버 연결 끊김 오버레이 (멈춤 원인을 즉시 표시)
+  if (!state.connected) {
+    ctx.save();
+    ctx.fillStyle='rgba(185,28,28,.92)';
+    const bw=300, bh=28;
+    ctx.fillRect(W/2-bw/2, 10, bw, bh);
+    ctx.fillStyle='#fff';
+    ctx.font='bold 12px Segoe UI';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('● 서버 연결 끊김 — 자동 재연결 중...', W/2, 10+bh/2);
+    ctx.restore();
+  }
+
+  // Scale bar
+  updateScaleBar();
+}
+
+function updateScaleBar() {
+  if (!state.mapMeta) { $('scale-bar').textContent=''; return; }
+  // px/m 은 worldToScreen 으로 직접 계산(맵 비율 보존 변환 반영).
+  const s1 = worldToScreen(0,0);
+  const s2 = worldToScreen(1,0);
+  const pxPerM = Math.abs(s2.x - s1.x);
+  let dist=1, label='1m';
+  if (pxPerM<20)  { dist=10; label='10m'; }
+  if (pxPerM<5)   { dist=50; label='50m'; }
+  if (pxPerM>100) { dist=0.5; label='0.5m'; }
+  const barW = pxPerM*dist;
+  $('scale-bar').textContent=`▬ ${label}`;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Map interaction
+// ══════════════════════════════════════════════════════════════
+function setMode(m) {
+  state.mapMode=m;
+  if (m!=='keepout') state.keepoutDraft=[];
+  if (m!=='dock')    state.dockTargetVid=null;
+
+  const modes=['view','goto','patrol','keepout','coverage','pose_align'];
+  for (const x of modes) {
+    const btn=$(`tool-${x}`);
+    if (btn) btn.classList.toggle('active', x===m);
+  }
+
+  const hints={
+    view:'',
+    goto:`📍 클릭: "${state.selectedVehicle}" 이동 목표`,
+    patrol:'🗺 클릭: 순찰 웨이포인트 추가',
+    keepout:'⛔ 클릭: 금지구역 꼭짓점 · 더블클릭/시작점: 완성',
+    dock:`⚡ 클릭: "${state.dockTargetVid||state.selectedVehicle}" 도킹 위치 설정`,
+    coverage:`📐 드래그: "${state.selectedVehicle}" 커버리지 직사각형 영역 지정`,
+    pose_align:`◎ 클릭: "${state.selectedVehicle}"의 실제 현재 위치로 marker 보정`,
+  };
+  $('mode-hint').textContent=hints[m]||'';
+  const badge = $('mode-badge');
+  if (badge) {
+    const labels = {view:'보기', goto:'이동', patrol:'순찰', keepout:'금지구역', dock:'도킹', pose_align:'보정'};
+    badge.textContent = `현재 모드: ${labels[m] || m}`;
+    badge.className = 'badge ' + (m === 'pose_align' ? 'warn' : (m === 'view' ? '' : 'ok'));
+  }
+
+  const cv=canvas();
+  cv.style.cursor = {
+    view:'grab', goto:'crosshair', patrol:'cell',
+    keepout:'crosshair', dock:'crosshair', coverage:'crosshair', pose_align:'crosshair'
+  }[m]||'crosshair';
+  drawAll();
+}
+
+function startSetDock() {
+  const vid = ($('dock-vehicle-select')||{}).value || state.selectedVehicle;
+  state.dockTargetVid=vid;
+  state.mapMode='dock';
+  setMode('dock');
+  switchTab('zone');
+}
+
+function startPoseAlign() {
+  state.mapMode='pose_align';
+  setMode('pose_align');
+  switchTab('zone');
+}
+
+function clearPoseAlign() {
+  send({cmd:'clear_pose_calibration', vehicle_id:state.selectedVehicle});
+  delete state.poseCalibrations[state.selectedVehicle];
+  renderVehicles();
+  showToast(`◎ ${state.selectedVehicle} 위치 보정 해제`);
+}
+
+function cancelKeepoutDraft() {
+  state.keepoutDraft=[];
+  if (state.mapMode==='keepout') setMode('view');
+}
+
+// Canvas mouse events
+function onMapMouseDown(e) {
+  if (state.mapMode==='coverage') {
+    const rect=canvas().getBoundingClientRect();
+    const w=screenToWorld(e.clientX-rect.left, e.clientY-rect.top);
+    state.coverageRectDrag={active:true, x1:w.x, y1:w.y, x2:w.x, y2:w.y};
+    return;
+  }
+  if (state.mapMode==='view') {
+    state.drag.active=true;
+    state.drag.startX=e.clientX; state.drag.startY=e.clientY;
+    state.drag.startTx=view.tx;  state.drag.startTy=view.ty;
+    canvas().style.cursor='grabbing';
+  }
+}
+
+function onMapMouseMove(e) {
+  const rect=canvas().getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const w=screenToWorld(sx,sy);
+  $('map-coords').textContent=`map (${w.x.toFixed(2)}, ${w.y.toFixed(2)})`;
+
+  if (state.coverageRectDrag.active && state.mapMode==='coverage') {
+    state.coverageRectDrag.x2=w.x;
+    state.coverageRectDrag.y2=w.y;
+  }
+  if (state.drag.active && state.mapMode==='view') {
+    view.tx=state.drag.startTx+(e.clientX-state.drag.startX);
+    view.ty=state.drag.startTy+(e.clientY-state.drag.startY);
+  }
+}
+
+function onMapMouseUp(e) {
+  if (state.coverageRectDrag.active && state.mapMode==='coverage') {
+    const r=state.coverageRectDrag;
+    state.coverageRectDrag.active=false;
+    const minX=Math.min(r.x1,r.x2), maxX=Math.max(r.x1,r.x2);
+    const minY=Math.min(r.y1,r.y2), maxY=Math.max(r.y1,r.y2);
+    if (Math.abs(maxX-minX)>0.2 && Math.abs(maxY-minY)>0.2) {
+      // CCW 순서로 4꼭짓점 설정
+      state.coverageDraft=[
+        {x:minX,y:minY},{x:maxX,y:minY},
+        {x:maxX,y:maxY},{x:minX,y:maxY}
+      ];
+      state.coveragePolygon=[...state.coverageDraft];
+      const genBtn=$('btn-gen-coverage');
+      if (genBtn) genBtn.disabled=false;
+      const statusEl=$('coverage-status');
+      if (statusEl) statusEl.textContent='직사각형 완성 — [⚡ 경로 생성] 클릭';
+      setMode('view');
+    }
+    return;
+  }
+  if (state.drag.active) {
+    state.drag.active=false;
+    canvas().style.cursor='grab';
+  }
+}
+
+function onMapClick(e) {
+  if (state.drag.active) return;
+  const rect=canvas().getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const w=screenToWorld(sx,sy);
+
+  if (state.mapMode==='goto') {
+    const yaw=Number($('patrol-yaw').value||0)*Math.PI/180;
+    send({cmd:'navigate_to', vehicle_id:state.selectedVehicle, x:w.x, y:w.y, yaw_rad:yaw});
+    showToast(`→ ${state.selectedVehicle} 이동: (${w.x.toFixed(2)}, ${w.y.toFixed(2)})`);
+    setMode('view');
+
+  } else if (state.mapMode==='patrol') {
+    const yaw=Number($('patrol-yaw').value||0);
+    const wps=state.plannerWps[state.selectedVehicle]||[];
+    wps.push([+w.x.toFixed(3), +w.y.toFixed(3), yaw]);
+    state.plannerWps[state.selectedVehicle]=wps;
+    renderWpList();
+
+  } else if (state.mapMode==='keepout') {
+    // Check if clicking near first vertex to close
+    if (state.keepoutDraft.length>=3) {
+      const first=state.keepoutDraft[0];
+      const fs=worldToScreen(first.x, first.y);
+      if (Math.hypot(sx-fs.x, sy-fs.y)<18) {
+        closeKeepout(); return;
+      }
+    }
+    state.keepoutDraft.push({x:w.x, y:w.y});
+
+  } else if (state.mapMode==='dock') {
+    const vid=state.dockTargetVid||state.selectedVehicle;
+    const yaw=Number($('patrol-yaw').value||0)*Math.PI/180;
+    state.dockPositions[vid]={x:w.x, y:w.y, yaw_rad:yaw};
+    send({cmd:'set_dock', vehicle_id:vid, x:w.x, y:w.y, yaw_rad:yaw});
+    renderDockInfo();
+    showToast(`⚡ ${vid} 도킹 위치 설정: (${w.x.toFixed(2)}, ${w.y.toFixed(2)})`);
+    setMode('view');
+
+  } else if (state.mapMode==='pose_align') {
+    const yaw=poseAlignYawRad();
+    send({cmd:'set_pose_calibration', vehicle_id:state.selectedVehicle, x:w.x, y:w.y, yaw_rad:yaw});
+    showToast(`◎ ${state.selectedVehicle} 위치 보정 + Nav2 위치추정: (${w.x.toFixed(2)}, ${w.y.toFixed(2)}), yaw ${(yaw*180/Math.PI).toFixed(0)}°`);
+    setMode('view');
+  }
+}
+
+function onMapDblClick(e) {
+  if (state.mapMode==='keepout' && state.keepoutDraft.length>=3) {
+    closeKeepout();
+  }
+  if (false) { // coverage는 드래그 방식으로 변경 — dblclick 불필요
+    closeCoverageDraft();
+  }
+}
+
+function closeKeepout() {
+  if (state.keepoutDraft.length<3) return;
+  state.keepoutZones.push({pts:[...state.keepoutDraft], label:`구역${state.keepoutZones.length+1}`});
+  state.keepoutDraft=[];
+  renderZoneList();
+  send({cmd:'keepout_zones', zones:state.keepoutZones.map(z=>z.pts)});
+  showToast(`⛔ 진입금지구역 ${state.keepoutZones.length} 추가됨`);
+}
+
+function deleteZone(i) {
+  state.keepoutZones.splice(i,1);
+  renderZoneList();
+  send({cmd:'keepout_zones', zones:state.keepoutZones.map(z=>z.pts)});
+}
+
+function clearKeepout() {
+  state.keepoutZones=[]; state.keepoutDraft=[];
+  renderZoneList();
+  send({cmd:'keepout_zones', zones:[]});
+}
+
+function onMapWheel(e) {
+  e.preventDefault();
+  const rect=canvas().getBoundingClientRect();
+  const sx=e.clientX-rect.left, sy=e.clientY-rect.top;
+  const factor = e.deltaY<0 ? 1.12 : 0.89;
+  zoomAt(sx, sy, factor);
+}
+
+function autoPanToAlert(alert) {
+  const s=worldToScreen(+alert.map_x, +alert.map_y);
+  const cv=canvas();
+  const cx=cv.width/2, cy=cv.height/2;
+  if (Math.abs(s.x-cx)>cv.width*0.35 || Math.abs(s.y-cy)>cv.height*0.35) {
+    view.tx += cx-s.x;
+    view.ty += cy-s.y;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Audio
+// ══════════════════════════════════════════════════════════════
+function playBeep() {
+  if (!state.audioEnabled) return;
+  try {
+    if (!state.audioCtx) state.audioCtx=new AudioContext();
+    const ctx=state.audioCtx;
+    if (ctx.state==='suspended') ctx.resume();
+    [880,1100,880].forEach((freq,i)=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value=freq; osc.type='square';
+      const t=ctx.currentTime+i*0.15;
+      gain.gain.setValueAtTime(0.15,t);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+0.13);
+      osc.start(t); osc.stop(t+0.13);
+    });
+  } catch(err) {}
+}
+
+function toggleSound() {
+  state.audioEnabled=!state.audioEnabled;
+  $('sound-btn').textContent=state.audioEnabled?'🔔 알림음 켬':'🔕 알림음 꺼짐';
+  if (state.audioEnabled && !state.audioCtx) state.audioCtx=new AudioContext();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Toast notifications
+// ══════════════════════════════════════════════════════════════
+function showToast(text, high=false) {
+  const root=$('toast-root');
+  const el=document.createElement('div');
+  el.className='toast'+(high?' high':'');
+  el.textContent=text;
+  root.appendChild(el);
+  setTimeout(()=>{ el.style.transition='opacity .4s'; el.style.opacity='0';
+    setTimeout(()=>el.remove(),450); }, 3000);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Controls
+// ══════════════════════════════════════════════════════════════
+function selectVehicle(id) {
+  const wasVehicleMap = ['aip1', 'aip2', 'aip3'].includes(state.mapSource);
+  state.selectedVehicle=id;
+  state.manualVehicleSelection=true;
+  $('vehicle-select').value=id;
+  renderVehicles();
+  renderLock();
+  renderWpList();
+  renderPoseAlignInfo();
+  onPatrolStatus(state.patrolStatus[id] || {vehicle_id:id, running:false, loop:true});
+  if (wasVehicleMap) setSelectedVehicleMapSource();
+  updateMapSourceButtons();
+  if (state.mapMode==='goto') $('mode-hint').textContent=`📍 클릭: "${id}" 이동 목표`;
+  if (state.mapMode==='pose_align') $('mode-hint').textContent=`◎ 클릭: "${id}"의 실제 현재 위치로 marker 보정`;
+  // 차량 카드 선택 시 비전/열화상 뷰도 해당 차량으로 동기화
+  if (['aip1','aip2','aip3'].includes(id)) {
+    state.selectedVision = id;
+    const vs = $('vision-select'); if (vs) vs.value = id;
+    renderVision();
+  }
+  switchTab('control');
+}
+
+function onVehicleChange() {
+  selectVehicle($('vehicle-select').value);
+}
+
+function onVisionChange() {
+  state.selectedVision=$('vision-select').value;
+  renderVision();
+}
+
+function clearAlerts() {
+  state.alerts=[]; state.highCount=0;
+  $('alert-badge').textContent='0 알림'; $('alert-badge').className='badge';
+  renderAlerts();
+}
+
+function takeControl() {
+  const lock = {
+    operator_id: OPERATOR_ID,
+    vehicle_id: state.selectedVehicle,
+    locked: true,
+    local: true,
+  };
+  state.localLocks[state.selectedVehicle] = lock;
+  reconcileControlLocks();
+  renderLock();
+  send({cmd:'control_lock', operator_id:OPERATOR_ID, vehicle_id:state.selectedVehicle, locked:true});
+}
+
+function releaseControl() {
+  stopDrive(1);
+  delete state.localLocks[state.selectedVehicle];
+  delete state.serverLockState[state.selectedVehicle];
+  delete state.lockState[state.selectedVehicle];
+  reconcileControlLocks();
+  renderLock();
+  sendZeroOverride(0);
+  send({cmd:'control_lock', operator_id:OPERATOR_ID, vehicle_id:state.selectedVehicle, locked:false});
+}
+function estopAll()  { send({cmd:'estop_all'}); }
+function estopOne()  { send({cmd:'estop', vehicle_id:state.selectedVehicle}); }
+function esp32Reset() {
+  const vid = state.selectedVehicle;
+  if (vid !== 'aip1') { showToast('ESP32 재시작은 aip1 전용입니다'); return; }
+  if (!confirm(`${vid} ESP32를 재시작하시겠습니까?\nfleet_main이 재시작되며 약 5초간 주행이 중단됩니다.`)) return;
+  const btn = $('esp32-reset-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⚡ 재시작 중...'; }
+  send({cmd: 'esp32_reset', vehicle_id: vid});
+  showToast(`⚡ ${vid} ESP32 재시작 요청 중...`);
+}
+function onEsp32ResetResult(msg) {
+  const btn = $('esp32-reset-btn');
+  if (btn) { btn.disabled = false; btn.textContent = '⚡ ESP32 재시작 (aip1)'; }
+  if (msg.ok) {
+    showToast(`✅ ${msg.vehicle_id} ESP32 재시작 완료`);
+  } else {
+    showToast(`❌ ${msg.vehicle_id} ESP32 재시작 실패: ${(msg.msg||'').slice(0,80)}`, true);
+  }
+}
+function releaseOne() { send({cmd:'release_estop', vehicle_id:state.selectedVehicle}); showToast(`✅ ${state.selectedVehicle} 정지 해제`); }
+function clearAll()  {
+  if (!confirm('전체 E-Stop을 해제하면 자율주행 중인 차량이 움직일 수 있습니다. 계속하시겠습니까?')) return;
+  send({cmd:'release_all'});
+}
+
+function hasOwnControl() {
+  reconcileControlLocks();
+  const lock = (state.lockState||{})[state.selectedVehicle];
+  return !!lock && lock.operator_id === OPERATOR_ID;
+}
+
+function refreshControlLocks() {
+  for (const [vid, lock] of Object.entries(state.localLocks || {})) {
+    if (!lock || lock.operator_id !== OPERATOR_ID) continue;
+    send({cmd:'control_lock', operator_id:OPERATOR_ID, vehicle_id:vid, locked:true});
+  }
+}
+
+function warnNoControl() {
+  const now = Date.now();
+  if (now - state.lastNoLockToast > 1500) {
+    showToast('제어권 획득 후 수동 주행할 수 있습니다.', true);
+    state.lastNoLockToast = now;
+  }
+}
+
+function sendZeroOverride(command=1) {
+  send({
+    cmd:'override', vehicle_id:state.selectedVehicle, command,
+    linear_x:0, angular_z:0,
+  });
+}
+
+function sendOverride(command, linearOverride=null, angularOverride=null) {
+  if (command === 4 && !hasOwnControl()) {
+    warnNoControl();
+    return false;
+  }
+  send({
+    cmd:'override', vehicle_id:state.selectedVehicle, command,
+    linear_x: linearOverride ?? +$('linear').value,
+    angular_z: angularOverride ?? +$('angular').value,
+  });
+  return true;
+}
+
+function updateDriveLabels() {
+  $('linear-val').textContent=(+$('linear').value).toFixed(2);
+  $('angular-val').textContent=(+$('angular').value).toFixed(2);
+}
+
+function startDrive() {
+  if (!hasOwnControl()) {
+    warnNoControl();
+    return;
+  }
+  if (state.driveTimer) return;
+  sendOverride(4);
+  state.driveTimer=setInterval(()=>sendOverride(4),80);
+}
+
+function stopDrive(command=1) {
+  if (state.driveTimer) {
+    clearInterval(state.driveTimer);
+    state.driveTimer=null;
+  }
+  sendZeroOverride(command);
+}
+
+function setScenario(sc) { send({cmd:'set_scenario', scenario:sc}); showToast(`시나리오: ${sc}`); }
+
+// ── 서보암(aip1) 수동 제어 — 구동모터처럼 웹에서 직접 ───────────────────
+// 자세 프리셋(deg)은 arm_config.yaml 명목 캘리브레이션 기준. 실차 보정 시 함께 갱신.
+const ARM_JOINTS = ['베이스(yaw)','숄더','엘보','리스트'];
+const ARM_POSES = {
+  stow:[90,0,0,90], forward:[90,40,40,90], left:[180,40,40,90],
+  right:[0,40,40,90], up:[90,136,90,90], low_forward:[90,96,101,90],
+};
+function armLbl(i) {
+  const s = document.getElementById('arm-j'+i), v = document.getElementById('arm-j'+i+'v');
+  if (s && v) v.textContent = s.value;
+}
+function armNudge(jointIdx, delta) {   // CCTV 방향패드: 해당 관절 ±delta° 후 전송
+  const s = document.getElementById('arm-j'+jointIdx);
+  if (!s) return;
+  s.value = Math.max(0, Math.min(180, (+s.value) + delta));
+  armLbl(jointIdx);
+  armServoFromSliders();
+}
+function _armSetSliders(degs) {
+  degs.forEach((d,i)=>{
+    const s=document.getElementById('arm-j'+i), v=document.getElementById('arm-j'+i+'v');
+    if (s) s.value=d;
+    if (v) v.textContent=d;
+  });
+}
+function _armReadSliders() {
+  return ARM_JOINTS.map((_,i)=>{ const s=document.getElementById('arm-j'+i); return s?+s.value:90; });
+}
+function armServoFromSliders() { send({cmd:'arm', action:'servo', degrees:_armReadSliders()}); }
+function armPose(name) {
+  const degs = ARM_POSES[name];
+  if (!degs) return;
+  _armSetSliders(degs);
+  send({cmd:'arm', action:'servo', degrees:degs});
+  showToast('서보암 → '+name);
+}
+function armScan() { send({cmd:'arm', action:'scan'}); showToast('서보암 자동 스캔'); }
+function armStop() { send({cmd:'arm', action:'stow'}); showToast('서보암 정지/접기'); }
+
+function sendPatrolCmd(c) {
+  send({cmd:'patrol_planner', patrol_cmd:`switch:${state.selectedVehicle}`});
+  send({cmd:'patrol_planner', patrol_cmd:c});
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Patrol waypoints
+// ══════════════════════════════════════════════════════════════
+function onPatrolYawChange() {
+  $('patrol-yaw-val').textContent=`${$('patrol-yaw').value}°`;
+}
+
+function wpDeleteIdx(i) {
+  const wps=state.plannerWps[state.selectedVehicle]||[];
+  wps.splice(i,1);
+  renderWpList();
+  if (wps.length) wpSend(); else sendPatrolCmd('clear');
+}
+
+function wpUndo() {
+  (state.plannerWps[state.selectedVehicle]||[]).pop();
+  sendPatrolCmd('undo'); renderWpList();
+}
+
+function wpClear() {
+  state.plannerWps[state.selectedVehicle]=[];
+  sendPatrolCmd('clear'); renderWpList();
+}
+
+function wpSend() {
+  const wps=state.plannerWps[state.selectedVehicle]||[];
+  if (!wps.length) { showToast('⚠ 웨이포인트가 없습니다'); return; }
+  const enc=wps.map(wp=>`${(+wp[0]).toFixed(3)},${(+wp[1]).toFixed(3)},${(+wp[2]||0).toFixed(1)}`).join(';');
+  send({cmd:'patrol_planner', patrol_cmd:`switch:${state.selectedVehicle}`});
+  send({cmd:'patrol_planner', patrol_cmd:'mode:waypoints'});
+  send({cmd:'patrol_planner', patrol_cmd:`set_wp_list:${state.selectedVehicle}:${enc}`});
+  showToast(`▶ ${state.selectedVehicle} 순찰 경로 전송 (${wps.length} WP)`);
+}
+
+function wpSave() { wpSend(); sendPatrolCmd('save'); showToast('💾 경로 저장됨'); }
+
+// ══════════════════════════════════════════════════════════════
+//  Dock
+// ══════════════════════════════════════════════════════════════
+function sendToDock() {
+  const vid=($('dock-vehicle-select')||{}).value||state.selectedVehicle;
+  const dock=state.dockPositions[vid];
+  if (!dock) { showToast(`⚠ ${vid} 도킹 위치가 설정되지 않음`); return; }
+  send({cmd:'navigate_to', vehicle_id:vid, x:dock.x, y:dock.y, yaw_rad:dock.yaw_rad});
+  showToast(`⚡ ${vid} 도킹 위치로 이동`);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Bag recording
+// ══════════════════════════════════════════════════════════════
+function toggleBag() { state.recording ? stopBag() : startBag(); }
+function startBag()  { send({cmd:'start_bag'}); }
+function stopBag()   { send({cmd:'stop_bag'}); }
+
+// ══════════════════════════════════════════════════════════════
+//  Fullscreen
+// ══════════════════════════════════════════════════════════════
+function toggleFs() {
+  state.isFs=!state.isFs;
+  $('map-panel').classList.toggle('fs', state.isFs);
+  $('tool-fs').textContent=state.isFs?'✕':'⛶';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Tabs
+// ══════════════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active', ['control','patrol','zone','system','mission'][i]===name);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p=>{
+    p.classList.remove('active');
+  });
+  const pane=$(`tab-${name}`);
+  if (pane) pane.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Theme
+// ══════════════════════════════════════════════════════════════
+function applyTheme(t) {
+  const dark=t==='dark';
+  document.body.classList.toggle('dark',dark);
+  document.querySelector('.hbtn:last-child').textContent=dark?'Light':'Dark';
+  localStorage.setItem('aip-theme', dark?'dark':'light');
+}
+function toggleTheme() {
+  applyTheme(document.body.classList.contains('dark')?'light':'dark');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Keyboard shortcuts
+// ══════════════════════════════════════════════════════════════
+const _keysDown=new Set();
+const DRIVE_KEYS=new Set(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ']);
+function isTextEditTarget(e) {
+  const el = e.target;
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const tag = el.tagName;
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return tag === 'INPUT' && el.type !== 'range';
+}
+function onKey(e) {
+  if (isTextEditTarget(e)) return;
+  const k=e.key.toLowerCase();
+  if (k==='v') setMode('view');
+  if (k==='g') setMode('goto');
+  if (k==='p') setMode('patrol');
+  if (k==='k') setMode('keepout');
+  if (k==='c') setMode('coverage');
+  if (k==='f') resetView();
+  if (k==='+') zoomIn();
+  if (k==='-') zoomOut();
+  if (k==='escape') {
+    if (state.visionModal) { closeVisionModal(); return; }
+    if (state.isFs) toggleFs();
+    if (state.mapMode!=='view') setMode('view');
+    state.keepoutDraft=[];
+    stopDrive();
+  }
+}
+
+// WASD keyboard drive
+let _kbTimer=null;
+function onKeyDown(e) {
+  const k = e.key.toLowerCase();
+  if (!DRIVE_KEYS.has(k)) {
+    onKey(e);
+    return;
+  }
+  if (isTextEditTarget(e)) return;
+  e.preventDefault();
+  _keysDown.add(k);
+  if (!hasOwnControl()) {
+    warnNoControl();
+    return;
+  }
+  if (!_kbTimer) {
+    _kbTimer=setInterval(()=>{
+      let lx=0,az=0;
+      const lin = Math.abs(+$('linear').value) || 0.20;   // 폴백: 중량차 정지마찰 임계(≥0.2). 0.03은 안 움직임
+      const ang = Math.abs(+$('angular').value) || 0.50;   // 폴백: 회전 임계(≥0.5). 서버측 per-vehicle max로 클램프됨
+      if (_keysDown.has('w')||_keysDown.has('arrowup'))    lx=lin;
+      if (_keysDown.has('s')||_keysDown.has('arrowdown'))  lx=-lin;
+      if (_keysDown.has('a')||_keysDown.has('arrowleft'))  az=ang;
+      if (_keysDown.has('d')||_keysDown.has('arrowright')) az=-ang;
+      if (_keysDown.has(' ')) lx=0,az=0;
+      if (lx||az) {
+        sendOverride(4, lx, az);
+      }
+    }, 80);
+  }
+}
+function onKeyUp(e) {
+  _keysDown.delete(e.key.toLowerCase());
+  if (![..._keysDown].some(k=>DRIVE_KEYS.has(k))) {
+    if (_kbTimer) { clearInterval(_kbTimer); _kbTimer=null; }
+    stopDrive(1);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Coverage generation (수동 웨이포인트와 별개 모드)
+// ══════════════════════════════════════════════════════════════
+function onCovSpacingChange() {
+  $('cov-spacing-val').textContent=`${parseFloat($('cov-spacing').value).toFixed(1)}m`;
+}
+function onCovHeadingChange() {
+  $('cov-heading-val').textContent=`${$('cov-heading').value}°`;
+}
+function cancelCoverageDraft() {
+  state.coverageDraft=[];
+  const genBtn=$('btn-gen-coverage');
+  if (genBtn) genBtn.disabled=true;
+  const statusEl=$('coverage-status');
+  if (statusEl) statusEl.textContent='';
+  if (state.mapMode==='coverage') setMode('view');
+}
+function clearCoveragePolygon() {
+  state.coverageDraft=[];
+  state.coveragePolygon=[];
+  delete state.coverageGenVids[state.selectedVehicle];
+  const genBtn=$('btn-gen-coverage');
+  if (genBtn) genBtn.disabled=true;
+  const statusEl=$('coverage-status');
+  if (statusEl) statusEl.textContent='';
+  if (state.mapMode==='coverage') setMode('view');
+  showToast('커버리지 영역 삭제됨');
+}
+function closeCoverageDraft() {
+  if (state.coverageDraft.length<3) return;
+  const genBtn=$('btn-gen-coverage');
+  if (genBtn) genBtn.disabled=false;
+  const statusEl=$('coverage-status');
+  if (statusEl) statusEl.textContent=
+    `폴리곤 완성 (${state.coverageDraft.length}개 꼭짓점) — [⚡ 경로 생성] 클릭`;
+  setMode('view');
+}
+function generateCoverage() {
+  if (state.coverageDraft.length<3) { showToast('⚠ 커버리지 영역 꼭짓점 3개 이상 필요'); return; }
+  const vid=state.selectedVehicle;
+  const spacing=parseFloat($('cov-spacing').value)||2.0;
+  const heading=parseFloat($('cov-heading').value)||0.0;
+  const ptsStr=state.coverageDraft.map(p=>`${p.x.toFixed(3)},${p.y.toFixed(3)}`).join(';');
+  send({cmd:'patrol_planner',
+        patrol_cmd:`set_coverage_polygon:${vid}:${spacing}:${heading}:${ptsStr}`});
+  showToast(`📐 ${vid} 커버리지 경로 생성 (간격=${spacing}m, 방향=${heading}°)`);
+  state.coveragePolygon=[...state.coverageDraft];
+  state.coverageGenVids[vid]=true;
+  state.coverageDraft=[];
+  const genBtn=$('btn-gen-coverage');
+  if (genBtn) genBtn.disabled=true;
+  const statusEl=$('coverage-status');
+  if (statusEl) statusEl.textContent='경로 생성 완료 후 [▶ 시작] 버튼으로 순찰 시작';
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Mission control
+// ══════════════════════════════════════════════════════════════
+function onMissionPhase(msg) {
+  state.missionPhase=msg.phase||'IDLE';
+  state.missionMapper=msg.mapper||'';
+  renderMissionTab();
+}
+function renderMissionTab() {
+  const p=state.missionPhase;
+  const doneIdx={IDLE:-1, MAPPING:-1, MAP_READY:0, PATROLLING:1}[p]??-1;
+  const activeIdx={IDLE:-1, MAPPING:0, MAP_READY:1, PATROLLING:2}[p]??-1;
+  ['mphase-1','mphase-2','mphase-3'].forEach((id,i)=>{
+    const el=$(id);
+    if (!el) return;
+    el.className='mphase';
+    if (i<=doneIdx)      el.classList.add('done');
+    else if (i===activeIdx) el.classList.add('active');
+  });
+  const mapStatus=$('mission-map-status');
+  if (mapStatus) {
+    mapStatus.style.color='';
+    if (p==='IDLE')         mapStatus.textContent='맵 대기 중...';
+    else if (p==='MAPPING') mapStatus.textContent=`${state.missionMapper} 매핑 진행 중...`;
+    else if (p==='MAP_READY') {
+      mapStatus.textContent='✅ 맵 완성 — 순찰 투입 가능';
+      mapStatus.style.color='var(--green)';
+    }
+    else if (p==='PATROLLING') mapStatus.textContent='순찰 운용 중';
+  }
+  const deployBtn=$('btn-deploy-patrol');
+  if (deployBtn) deployBtn.disabled=(p!=='MAP_READY');
+  const startBtn=$('btn-start-mapping');
+  if (startBtn) startBtn.disabled=(p!=='IDLE');
+  const mapperSel=$('mission-mapper-select');
+  if (mapperSel && state.missionMapper) mapperSel.value=state.missionMapper;
+}
+// 미션 오케스트레이션은 백엔드 미연결(고아) → 추후 AI 파이프라인 통합 시 활성화.
+// 버튼은 disabled. 함수도 가드해 dead 명령 전송을 막는다(2026-06-27).
+const MISSION_PANEL_ENABLED = false;
+function _missionDisabledToast() {
+  showToast('미션 자동화는 현재 비활성입니다(추후 AI 통합). [제어]·[순찰] 탭 사용', true);
+}
+function startMapping() {
+  const vid=($('mission-mapper-select')||{}).value||'aip1';
+  const mode=($('mission-mapper-mode')||{}).value||'auto';
+  if (mode==='auto' && !confirm(`${vid} 자율 매핑을 시작합니다.\n차량이 스스로 주행합니다 — estop 대기 + 주시 상태에서 확인하세요.`)) return;
+  send({cmd:'start_mapping', vehicle_id:vid, mode});
+  const lbl = mode==='auto'?'자율 매핑':(mode==='localize'?'로컬라이제이션':'수동 매핑');
+  showToast(`▶ ${vid} ${lbl} 시작`);
+}
+function stopMapping() {
+  const vid=($('mission-mapper-select')||{}).value||'aip1';
+  send({cmd:'stop_mapping', vehicle_id:vid});
+  showToast('■ 매핑 정지');
+}
+function deployPatrol() {
+  if (!MISSION_PANEL_ENABLED) return _missionDisabledToast();
+  const checks=document.querySelectorAll('#mission-patrol-checks input[type="checkbox"]');
+  const vids=[...checks].filter(c=>c.checked).map(c=>c.value);
+  if (!vids.length) { showToast('⚠ 순찰 투입할 차량을 선택하세요'); return; }
+  send({cmd:'deploy_patrol', vehicle_ids:vids});
+  showToast(`▶ 순찰 투입: ${vids.join(', ')}`);
+}
+function stopAllMissionPatrol() {
+  if (!MISSION_PANEL_ENABLED) return _missionDisabledToast();
+  const checks=document.querySelectorAll('#mission-patrol-checks input[type="checkbox"]');
+  const vids=[...checks].filter(c=>c.checked).map(c=>c.value);
+  for (const vid of vids) {
+    send({cmd:'patrol_planner', patrol_cmd:`switch:${vid}`});
+    send({cmd:'patrol_planner', patrol_cmd:'stop'});
+  }
+  showToast('■ 전체 순찰 정지');
+}
+function resetMission() {
+  if (!MISSION_PANEL_ENABLED) return _missionDisabledToast();
+  send({cmd:'reset_mission'});
+  showToast('↺ 미션 초기화');
+}
+
+// ══════════════════════════════════════════════════════════════
+//  Initialization
+// ══════════════════════════════════════════════════════════════
+function initSelectors() {
+  ['vehicle-select','vision-select'].forEach(id=>{
+    const el=$(id);
+    if (!el) return;
+    el.innerHTML=VEHICLES.map(v=>`<option value="${v}">${v}</option>`).join('');
+    if (id==='vehicle-select') el.value=state.selectedVehicle;
+    if (id==='vision-select')  el.value=state.selectedVision;
+    if (id==='dock-vehicle-select') el.addEventListener('change', renderDockInfo);
+  });
+}
+
+function loadVisionStreamsFromQuery() {
+  const params = new URLSearchParams(location.search);
+  const commonPollRaw = params.has('poll_ms') ? params.get('poll_ms') : params.get('vision_poll_ms');
+  if (commonPollRaw !== null) {
+    const rgb = pollMsValue(commonPollRaw, 2000);
+    const thermal = pollMsValue(commonPollRaw, 3000);
+    if (rgb !== null) {
+      state.visionPollMs = rgb;
+      state.visionPollQuery.rgb = true;
+    }
+    if (thermal !== null) {
+      state.thermalPollMs = thermal;
+      state.visionPollQuery.thermal = true;
+    }
+  }
+  if (params.has('rgb_poll_ms')) {
+    const rgbPollMs = pollMsValue(params.get('rgb_poll_ms'), 2000);
+    if (rgbPollMs !== null) {
+      state.visionPollMs = rgbPollMs;
+      state.visionPollQuery.rgb = true;
+    }
+  }
+  if (params.has('thermal_poll_ms')) {
+    const thermalPollMs = pollMsValue(params.get('thermal_poll_ms'), 3000);
+    if (thermalPollMs !== null) {
+      state.thermalPollMs = thermalPollMs;
+      state.visionPollQuery.thermal = true;
+    }
+  }
+  for (const vid of VEHICLES) {
+    const url = params.get(`vision_${vid}`);
+    if (url) state.visionStreams[vid] = url;
+    const thermalUrl = params.get(`thermal_${vid}`);
+    if (thermalUrl) state.thermalStreams[vid] = thermalUrl;
+    const bbox = params.get(`bbox_${vid}`);
+    if (bbox) {
+      const parts = bbox.split(',').map(v => Number(v.trim()));
+      if (parts.length === 4 && parts.every(Number.isFinite)) {
+        state.alerts.unshift({
+          vehicle_id:vid,
+          level:'HIGH',
+          max_temp:0,
+          confidence:1,
+          map_x:0,
+          map_y:0,
+          bbox:{x:parts[0], y:parts[1], w:parts[2], h:parts[3]},
+          ts:'local-test',
+        });
+        state.highCount = Math.max(state.highCount, 1);
+      }
+    }
+  }
+}
+
+window.addEventListener('resize', renderVisionOverlay);
+
+window.addEventListener('load',()=>{
+  applyTheme(localStorage.getItem('aip-theme')||'light');
+  loadVisionStreamsFromQuery();
+  initSelectors();
+  updateDriveLabels();
+  onPatrolYawChange();
+  onPoseAlignYawChange();
+  renderVehicles();
+  renderAlerts();
+  renderVision();
+  renderLock();
+  renderWpList();
+  renderZoneList();
+  renderDockInfo();
+  renderCovDetail();
+  renderMissionTab();
+  setMode('view');
+  startAnimLoop();
+
+  // 차량 카드 선택 — mousedown 위임으로 WS 업데이트와의 레이스 컨디션 방지
+  $('vlist').addEventListener('mousedown', e => {
+    const card = e.target.closest('[data-vid]');
+    if (card) { e.preventDefault(); selectVehicle(card.dataset.vid); }
+  });
+
+  // Map events
+  const cv=canvas();
+  cv.addEventListener('mousedown', onMapMouseDown);
+  cv.addEventListener('mousemove', onMapMouseMove);
+  cv.addEventListener('mouseup',   onMapMouseUp);
+  cv.addEventListener('click',     onMapClick);
+  cv.addEventListener('dblclick',  onMapDblClick);
+  cv.addEventListener('wheel',     onMapWheel, {passive:false});
+  cv.addEventListener('mouseleave', onMapMouseUp);
+
+  // Keyboard
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup',   onKeyUp);
+
+  // Clock
+  function tick() {
+    $('clock').textContent=new Date().toLocaleTimeString('ko-KR',{hour12:false});
+  }
+  tick(); setInterval(tick,1000);
+  setInterval(refreshControlLocks,1000);
+
+  // Resize handled by animation loop
+  window.addEventListener('beforeunload', stopDrive);
+
+  if (new URLSearchParams(location.search).get('no_ws') === '1') {
+    $('conn').textContent='LOCAL TEST'; $('conn').className='badge warn';
+  } else {
+    connect();
+  }
+});
+</script>
+</body>
+</html>

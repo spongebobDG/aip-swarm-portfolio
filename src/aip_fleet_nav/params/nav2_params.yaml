@@ -1,0 +1,108 @@
+# Nav2 local planner parameters (DWB) — shared across all vehicles.
+# ${vehicle_id} substituted at launch time.
+# Only the local planner is configured here; global planning is handled
+# by the coordinator_node (TF-based following), not Nav2 global planner.
+#
+# Real-vehicle migration: set use_sim_time: false.
+
+# Fully-qualified node names are required so that ROS2 YAML parameter loading
+# matches the namespaced nodes created by PushRosNamespace (e.g. /peer_2/...).
+# Using bare "controller_server:" only matches /controller_server (root ns).
+
+/${vehicle_id}/controller_server:
+  ros__parameters:
+    use_sim_time: true
+    controller_frequency: 10.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.3
+    progress_checker_plugins: ["progress_checker"]
+    goal_checker_plugins: ["goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5
+      movement_time_allowance: 10.0
+
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.10
+      yaw_goal_tolerance: 0.15
+      stateful: True
+
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      min_vel_x: -0.5
+      max_vel_x:  0.5
+      min_vel_y:  0.0
+      max_vel_y:  0.0
+      min_speed_xy: 0.0
+      max_speed_xy: 0.5
+      min_vel_theta: -2.0
+      max_vel_theta:  2.0
+      min_speed_theta: 0.0
+      acc_lim_x:     2.5
+      acc_lim_y:     0.0
+      acc_lim_theta: 3.2
+      decel_lim_x:  -2.5
+      decel_lim_y:   0.0
+      decel_lim_theta: -3.2
+      vx_samples: 20
+      vy_samples: 1
+      vtheta_samples: 20
+      sim_time: 1.5
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      transform_tolerance: 0.2
+      xy_goal_tolerance: 0.10
+      trans_stopped_velocity: 0.25
+      short_circuit_trajectory_filter: True
+      critics:
+        - RotateToGoal
+        - Oscillation
+        - BaseObstacle
+        - GoalAlign
+        - PathAlign
+        - PathDist
+        - GoalDist
+      BaseObstacle.scale: 0.02
+      PathAlign.scale: 32.0
+      GoalAlign.scale: 24.0
+      PathDist.scale: 32.0
+      GoalDist.scale: 24.0
+      RotateToGoal.scale: 32.0
+
+/${vehicle_id}/local_costmap/local_costmap:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: ${vehicle_id}/odom
+    robot_base_frame: ${vehicle_id}/base_link
+    update_frequency: 5.0
+    publish_frequency: 2.0
+    rolling_window: true
+    width: 4
+    height: 4
+    resolution: 0.05
+    robot_radius: 0.19    # sqrt((0.230/2)²+(0.300/2)²) = 0.189m  확정치
+    plugins: ["obstacle_layer", "inflation_layer"]
+    obstacle_layer:
+      plugin: "nav2_costmap_2d::ObstacleLayer"
+      enabled: True
+      observation_sources: scan
+      scan:
+        topic: /${vehicle_id}/scan
+        max_obstacle_height: 2.0
+        clearing: True
+        marking: True
+        data_type: "LaserScan"
+        raytrace_max_range: 3.0
+        raytrace_min_range: 0.0
+        obstacle_max_range: 2.5
+        obstacle_min_range: 0.0
+    inflation_layer:
+      plugin: "nav2_costmap_2d::InflationLayer"
+      cost_scaling_factor: 3.0
+      inflation_radius: 0.25   # robot_radius(0.20) + 0.05m 마진
+    always_send_full_costmap: True

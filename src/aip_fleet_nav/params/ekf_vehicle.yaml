@@ -1,0 +1,102 @@
+# EKF odometry fusion — wheel odom + IMU per vehicle.
+# ${vehicle_id} is substituted at launch time (string.Template).
+#
+# Pipeline:
+#   diff_drive_controller/odom (wheel encoder, 50 Hz) ─┐
+#                                                       ├─► ekf_node → <vid>/odometry/filtered
+#   <vid>/imu (Ignition IMU gyro, 100 Hz)            ─┘             └─► TF: <vid>/odom → <vid>/base_link
+#
+# Root cause this fixes:
+#   Without EKF, diff_drive published 'odom'→'base_link' (no namespace).
+#   slam_toolbox looked for '<ns>/odom'→'<ns>/base_link' → TF not found
+#   → slam_toolbox ran pure scan-matching only (no odom prior) → drift at speed.
+#   Now diff_drive uses namespaced frames + EKF fuses IMU gyro for better yaw.
+
+/${vehicle_id}/ekf:
+  ros__parameters:
+    frequency: 20.0   # 30→20 Hz: 3대 동시 운용 시 CPU 예산 확보
+    use_sim_time: true
+    print_diagnostics: false
+    debug: false
+
+    # ── Frames ────────────────────────────────────────────────────────────
+    # Must match diff_drive_controller odom_frame_id / base_frame_id exactly.
+    odom_frame:      ${vehicle_id}/odom
+    base_link_frame: ${vehicle_id}/base_link
+    world_frame:     ${vehicle_id}/odom
+
+    # Crucial for 2-D differential drive: suppresses roll/pitch/z estimation.
+    # Without this the EKF diverges from unconstrained 3-D states.
+    two_d_mode: true
+
+    # odom_frame_fixer corrects diff_drive frame IDs; EKF publishes the
+    # authoritative peer_N/odom → peer_N/base_link TF for SLAM and AMCL.
+    publish_tf: true
+    publish_acceleration: false
+    transform_time_offset: 0.0
+    transform_timeout: 0.5
+
+    # ── Sensor 0: wheel odometry (pose + velocity) ────────────────────────
+    # odom_frame_fixer republishes with corrected frame_id/child_frame_id so
+    # EKF accepts the measurement without frame mismatch.
+    # Config: [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    odom0: /${vehicle_id}/diff_drive_controller/odom_corrected
+    odom0_config: [true,  true,  false,
+                   false, false, true,
+                   true,  false, false,
+                   false, false, true,
+                   false, false, false]
+    odom0_queue_size: 3     # 10→3: CPU 스파이크 후 복구 시 오래된 메시지 플러시 방지 → TF backward jump 예방
+    odom0_nodelay: false
+    odom0_differential: false
+    odom0_relative: true
+
+    # ── Sensor 1: IMU — angular velocity only (gyro) ──────────────────────
+    # IMU gyro gives much better short-term yaw rate than wheel slip.
+    # No absolute orientation (sim has no magnetometer → no reliable abs yaw).
+    # Config: [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    imu0: /${vehicle_id}/imu
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,
+                  false, false, false]
+    imu0_queue_size: 5      # 10→5: IMU 100Hz 기준 0.05s 버퍼 — 과부하 복구 시 급격한 timestamp 역행 방지
+    imu0_nodelay: false
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
+    # ── Sensor 2: rf2o LiDAR 오도메트리 — vx·vyaw만 융합 ─────────────────
+    # 연속 LiDAR 스캔 ICP로 추정한 선속도(vx)·각속도(vyaw).
+    # 선회 시 바퀴 슬립과 무관한 독립 속도 기준 → EKF가 엔코더 오차 실시간 억제.
+    # 절대 위치(x,y)는 드리프트 누적 → 미사용.
+    # Config: [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    odom1: /${vehicle_id}/odom_rf2o
+    odom1_config: [false, false, false,
+                   false, false, false,
+                   true,  false, false,
+                   false, false, true,
+                   false, false, false]
+    odom1_queue_size: 3     # 10→3: rf2o 10Hz 기준 0.3s 버퍼 — 오래된 LiDAR 오도메트리 적재 차단
+    odom1_nodelay: false
+    odom1_differential: false
+    odom1_relative: true   # 상대 측정값으로 처리 — 절대 위치 누적 방지
+
+    # ── Process noise covariance Q (15×15 diagonal) ───────────────────────
+    # Only 5 states matter in two_d_mode (x, y, yaw, vx, vyaw).
+    process_noise_covariance: [0.05,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.05,  0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,    0.0,   0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,    0.0,   0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.03,  0.0,   0.0,    0.0,   0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.05,  0.0,    0.0,   0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.025,  0.0,   0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.025, 0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.04,  0.0,    0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.0,   0.01,   0.0,   0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.0,   0.0,    0.01,  0.0,   0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.0,   0.0,    0.0,   0.02,  0.0,   0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.0,   0.0,    0.0,   0.0,   0.01,  0.0,   0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.0,   0.0,    0.0,   0.0,   0.0,   0.01,  0.0,
+                               0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,    0.0,   0.0,   0.0,    0.0,   0.0,   0.0,   0.0,   0.015]

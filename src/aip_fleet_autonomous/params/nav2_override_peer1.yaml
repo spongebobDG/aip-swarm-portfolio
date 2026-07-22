@@ -1,0 +1,49 @@
+# nav2_override_peer1.yaml — FIT0186 자작차 (peer_1) 운동학 파라미터 오버라이드
+#
+# leader_nav.launch.py가 nav2_full.yaml(TB3 Burger 기준) 위에 이 파일을 병합한다.
+# ROS2 파라미터 병합 규칙: 같은 키가 존재하면 뒤에 로드된 값이 앞선 값을 덮어씀.
+#
+# FIT0186 DC 모터 스펙:
+#   12V, 감속비 43.8:1, 바퀴 지름 120mm, 바퀴 간격 290mm
+#   최대 이론 속도: 1.58 m/s, 운용 속도 상한: 0.5 m/s
+#
+# 이 파일의 ${vehicle_id}는 leader_nav.launch.py에서 렌더링 시 치환된다.
+
+# ── 로컬 플래너 (MPPI): 속도·각속도 상한 ──────────────────────────────────────
+/${vehicle_id}/controller_server:
+  ros__parameters:
+    FollowPath:
+      # FIT0186 전진 속도: 운용 상한 0.5 m/s의 80% — 실차 안전 마진 유지
+      vx_max:  0.40
+      vx_std:  0.18   # vx_max(0.40)의 45% — 유효 속도 탐색 유지
+
+      # FIT0186 wz 하드웨어 상한: 0.5(m/s) / 0.145(m) = 3.45 rad/s, 50% 적용 → 1.70 rad/s
+      wz_max:  1.70
+      wz_std:  0.68   # wz_max(1.70)의 40%
+
+      # RotationShimController: 제자리 회전 속도도 wz_max에 맞춤
+      rotate_to_heading_angular_vel: 1.70
+
+      # MPPI 궤적 시각화 비활성: 매 사이클 MarkerArray 퍼블리싱이 10Hz 사이클 예산 초과 유발.
+      # Foxglove에서 /<vid>/trajectories 확인 필요 시 true로 임시 전환.
+      visualize: false
+
+# ── 전역 플래너 (SmacPlannerHybrid): 최소 선회 반경 ──────────────────────────
+/${vehicle_id}/planner_server:
+  ros__parameters:
+    GridBased:
+      # FIT0186 바퀴 간격 290mm → minimum_turning_radius = 0.290/2 = 0.145m
+      minimum_turning_radius: 0.145
+
+# ── 전역 코스트맵: FIT0186 차체 footprint ────────────────────────────────────
+/${vehicle_id}/global_costmap/global_costmap:
+  ros__parameters:
+    # FIT0186 차체: 300(L)×230(W)mm → half: x=±0.15, y=±0.115
+    footprint: "[[0.15, 0.115], [0.15, -0.115], [-0.15, -0.115], [-0.15, 0.115]]"
+
+# ── 로컬 코스트맵: FIT0186 차체 footprint ────────────────────────────────────
+/${vehicle_id}/local_costmap/local_costmap:
+  ros__parameters:
+    footprint: "[[0.15, 0.115], [0.15, -0.115], [-0.15, -0.115], [-0.15, 0.115]]"
+    # inscribed(0.115) + footprint_padding(0.05) = 0.165m → 로컬 LETHAL 경계.
+    # 전역 플래너 경로 이격(0.35m) > 0.165m → MPPI가 LETHAL 영역 밖에서 추종 가능.

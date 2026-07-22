@@ -1,0 +1,9 @@
+# Request a vehicle to take on a high-level mission. The mission semantics
+# are interpreted by the vehicle's local autonomy node.
+
+string vehicle_id                 # e.g. "scout_1"
+string mission_type               # "follow" | "patrol" | "goto"
+geometry_msgs/PoseStamped target  # meaning depends on mission_type
+---
+bool accepted
+string reason

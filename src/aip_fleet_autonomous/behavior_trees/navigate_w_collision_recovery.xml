@@ -1,0 +1,60 @@
+<!--
+  충돌 대응 커스텀 BT:
+  회복 순서: [ClearLocal→BackUp0.25] → [ClearAll→Spin1.57→BackUp0.25] → [ClearAll→BackUp0.40] → Wait(3s)
+
+  핵심 변경:
+    ClearCostmap을 BackUp 앞에 배치.
+    기존: BackUp(stale 장애물로 즉시 실패) → ClearCostmap → 다음 사이클
+    개선: ClearCostmap → BackUp(장애물 제거 직후 실행 → 성공 가능성↑)
+
+  3단계 복구:
+    1단계: local costmap 초기화 + 0.25m 후진 (가벼운 복구)
+    2단계: 전체 costmap 초기화 + Spin(1.57rad) + 0.25m 후진 (코너 lethal space 탈출 — 회전 후 후진)
+    3단계: 전체 costmap 초기화 + 0.40m 후진 (더 긴 후진 탈출)
+    4단계: 3s 대기 (센서 재안정화 + costmap 재구성 후 재계획)
+-->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <RecoveryNode number_of_retries="3" name="NavigateRecovery">
+      <PipelineSequence name="NavigateWithReplanning">
+        <RateController hz="1.0">
+          <RecoveryNode number_of_retries="1" name="ComputePathToPose">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+            <ClearEntireCostmap name="ClearGlobalCostmap-Context" service_name="global_costmap/clear_entirely_global_costmap"/>
+          </RecoveryNode>
+        </RateController>
+        <RecoveryNode number_of_retries="1" name="FollowPath">
+          <FollowPath path="{path}" controller_id="FollowPath"/>
+          <ClearEntireCostmap name="ClearLocalCostmap-Context" service_name="local_costmap/clear_entirely_local_costmap"/>
+        </RecoveryNode>
+      </PipelineSequence>
+      <ReactiveFallback name="RecoveryFallback">
+        <GoalUpdated/>
+        <RoundRobin name="RecoveryActions">
+          <!-- 1단계: local costmap 초기화 → 후진
+               stale 장애물 제거 직후 BackUp → 코너 고착 탈출 -->
+          <Sequence name="ClearLocalAndBackup">
+            <ClearEntireCostmap name="ClearLocal1" service_name="local_costmap/clear_entirely_local_costmap"/>
+            <BackUp backup_dist="0.25" backup_speed="0.15"/>
+          </Sequence>
+          <!-- 2단계: 전체 costmap 초기화 → Spin(90°) → 후진
+               lethal space 탈출: 코너에서 회전으로 방향 전환 후 빈 공간 방향 후진 -->
+          <Sequence name="ClearAllSpinAndBackup">
+            <ClearEntireCostmap name="ClearLocal2" service_name="local_costmap/clear_entirely_local_costmap"/>
+            <ClearEntireCostmap name="ClearGlobal2" service_name="global_costmap/clear_entirely_global_costmap"/>
+            <Spin spin_dist="1.57"/>
+            <BackUp backup_dist="0.25" backup_speed="0.15"/>
+          </Sequence>
+          <!-- 3단계: 전체 costmap 초기화 → 더 많이 후진 -->
+          <Sequence name="ClearAllAndBackupMore">
+            <ClearEntireCostmap name="ClearLocal3" service_name="local_costmap/clear_entirely_local_costmap"/>
+            <ClearEntireCostmap name="ClearGlobal3" service_name="global_costmap/clear_entirely_global_costmap"/>
+            <BackUp backup_dist="0.40" backup_speed="0.15"/>
+          </Sequence>
+          <!-- 4단계: 대기 — 센서 안정화 + costmap 재구성 후 재계획 -->
+          <Wait wait_duration="3"/>
+        </RoundRobin>
+      </ReactiveFallback>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

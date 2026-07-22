@@ -1,0 +1,10 @@
+FROM ros:humble-ros-base@sha256:ec4ea4a624a8ea2aa3e304695731570cd47e4424980d7f00da4d172dc08a8625
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip \
+    ros-humble-nav2-msgs \
+    ros-humble-tf2-ros \
+    ros-humble-tf2-geometry-msgs \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir pillow numpy uvicorn fastapi

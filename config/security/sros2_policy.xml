@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SROS2 permission policy for the AIP fleet central stack.
+
+  Run scripts/sros2_init.sh once per deployment to generate the keystore and
+  per-node certificates from this file. Never commit the generated keystore/
+  directory — it is gitignored.
+
+  Trust model:
+    - Only supervisor can publish to /<ns>/estop and /<ns>/estop_lock.
+    - Only supervisor and watchdog can publish to /fleet/override.
+    - foxglove_bridge publishes /fleet/override on behalf of the operator UI.
+    - Coordinator nodes read TF and publish coord_cmd_vel only.
+    - micro-ROS agent (ESP32 scouts) is handled separately — see Phase 2 notes
+      in docs/SECURITY.md (H4/H5 family).
+
+  Enclave path = node's fully qualified name as set in the launch file.
+-->
+<policy version="0.2.0">
+  <enclaves>
+
+    <!-- ================================================================
+         Supervisor: aggregates heartbeats, publishes fleet status,
+         issues estop / estop_lock on CMD_ESTOP.
+    ================================================================ -->
+    <enclave path="/aip_fleet_supervisor">
+      <profiles>
+        <profile ns="/" node="aip_fleet_supervisor">
+          <topics subscribe="ALLOW">
+            <topic>/aip1/heartbeat</topic>
+            <topic>/aip2/heartbeat</topic>
+            <topic>/aip3/heartbeat</topic>
+            <topic>/fleet/override</topic>
+          </topics>
+          <topics publish="ALLOW">
+            <topic>/fleet/status</topic>
+            <topic>/aip1/estop</topic>
+            <topic>/aip2/estop</topic>
+            <topic>/aip3/estop</topic>
+            <topic>/aip1/estop_lock</topic>
+            <topic>/aip2/estop_lock</topic>
+            <topic>/aip3/estop_lock</topic>
+            <!-- rosout for logging -->
+            <topic>/rosout</topic>
+          </topics>
+          <services reply="ALLOW">
+            <service>*</service>
+          </services>
+          <services request="ALLOW">
+            <service>*</service>
+          </services>
+          <actions call="ALLOW">
+            <action>*</action>
+          </actions>
+          <actions execute="ALLOW">
+            <action>*</action>
+          </actions>
+        </profile>
+      </profiles>
+    </enclave>
+
+    <!-- ================================================================
+         Watchdog: monitors /fleet/status, fires ESTOP via /fleet/override
+         when a vehicle goes offline.
+    ================================================================ -->
+    <enclave path="/aip_fleet_watchdog">
+      <profiles>
+        <profile ns="/" node="aip_fleet_watchdog">
+          <topics subscribe="ALLOW">
+            <topic>/fleet/status</topic>
+          </topics>
+          <topics publish="ALLOW">
+            <topic>/fleet/override</topic>
+            <topic>/rosout</topic>
+          </topics>
+          <services reply="ALLOW">
+            <service>*</service>
+          </services>
+          <services request="ALLOW">
+            <service>*</service>
+          </services>
+          <actions call="ALLOW">
+            <action>*</action>
+          </actions>
+          <actions execute="ALLOW">
+            <action>*</action>
+          </actions>
+        </profile>
+      </profiles>
+    </enclave>
+
+    <!-- ================================================================
+         Foxglove bridge: read-all for the dashboard; write only
+         /fleet/override (relayed from operator UI) and /tf.
+         Note: broad subscribe is intentional — restricting it would
+         hide topics from the dashboard. Restrict further in Phase 2
+         if an attacker on the Foxglove WebSocket is a concern.
+    ================================================================ -->
+    <enclave path="/foxglove_bridge">
+      <profiles>
+        <profile ns="/" node="foxglove_bridge">
+          <topics subscribe="ALLOW">
+            <topic>*</topic>
+          </topics>
+          <topics publish="ALLOW">
+            <topic>/fleet/override</topic>
+            <topic>/tf</topic>
+            <topic>/rosout</topic>
+          </topics>
+          <services reply="ALLOW">
+            <service>*</service>
+          </services>
+          <services request="ALLOW">
+            <service>*</service>
+          </services>
+          <actions call="ALLOW">
+            <action>*</action>
+          </actions>
+          <actions execute="ALLOW">
+            <action>*</action>
+          </actions>
+        </profile>
+      </profiles>
+    </enclave>
+
+    <!-- ================================================================
+         Coordinator — aip2: reads TF, publishes coord_cmd_vel only.
+    ================================================================ -->
+    <enclave path="/coordinator_aip2">
+      <profiles>
+        <profile ns="/" node="coordinator_aip2">
+          <topics subscribe="ALLOW">
+            <topic>/tf</topic>
+            <topic>/tf_static</topic>
+          </topics>
+          <topics publish="ALLOW">
+            <topic>/aip2/coord_cmd_vel</topic>
+            <topic>/rosout</topic>
+          </topics>
+          <services reply="ALLOW">
+            <service>*</service>
+          </services>
+          <services request="ALLOW">
+            <service>*</service>
+          </services>
+          <actions call="ALLOW">
+            <action>*</action>
+          </actions>
+          <actions execute="ALLOW">
+            <action>*</action>
+          </actions>
+        </profile>
+      </profiles>
+    </enclave>
+
+    <!-- ================================================================
+         Coordinator — aip3: reads TF, publishes coord_cmd_vel only.
+    ================================================================ -->
+    <enclave path="/coordinator_aip3">
+      <profiles>
+        <profile ns="/" node="coordinator_aip3">
+          <topics subscribe="ALLOW">
+            <topic>/tf</topic>
+            <topic>/tf_static</topic>
+          </topics>
+          <topics publish="ALLOW">
+            <topic>/aip3/coord_cmd_vel</topic>
+            <topic>/rosout</topic>
+          </topics>
+          <services reply="ALLOW">
+            <service>*</service>
+          </services>
+          <services request="ALLOW">
+            <service>*</service>
+          </services>
+          <actions call="ALLOW">
+            <action>*</action>
+          </actions>
+          <actions execute="ALLOW">
+            <action>*</action>
+          </actions>
+        </profile>
+      </profiles>
+    </enclave>
+
+  </enclaves>
+</policy>

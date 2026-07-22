@@ -1,0 +1,470 @@
+# Nav2 full stack — per-vehicle autonomous navigation.
+# ${vehicle_id} substituted at launch time (string.Template).
+#
+# Nodes covered:
+#   amcl              — localisation on shared /map (peer_1 slam_toolbox)
+#   planner_server    — global path planning (NavFn / Dijkstra)
+#   bt_navigator      — NavigateToPose action executive
+#   controller_server — local obstacle avoidance (DWB)
+#   global_costmap    — static map layer + obstacle layer (for global planner)
+#   local_costmap     — rolling window (for local planner)
+#
+# Real-vehicle migration: set use_sim_time: false everywhere.
+
+# ── AMCL ─────────────────────────────────────────────────────────────────────
+/${vehicle_id}/amcl:
+  ros__parameters:
+    use_sim_time: true
+
+    odom_frame_id:   ${vehicle_id}/odom
+    base_frame_id:   ${vehicle_id}/base_link
+    global_frame_id: map
+    scan_topic:      /${vehicle_id}/scan
+
+    set_initial_pose:    true
+    min_particles:       200
+    max_particles:       1000   # 3000→1000: 3대 동시 AMCL CPU 67% 절감
+    kld_err:             0.05
+    kld_z:               0.99
+    update_min_d:        0.02   # 0.05→0.02m: 목표 근접 감속 구간에서도 파티클 갱신 유지 — 오버슛 방지
+    update_min_a:        0.05   # 0.10→0.05rad: 저속 회전 시 AMCL 포즈 지연 최소화
+    resample_interval:   1
+    transform_tolerance: 2.0
+    recovery_alpha_slow: 0.001
+    recovery_alpha_fast: 0.1    # 0.5→0.1: 초기 수렴 전 무작위 주입 억제 — 0.5는 파티클 폭발 유발
+    # Nav2 Humble AMCL 올바른 초기 포즈 파라미터명 (점 표기 필수).
+    # 언더스코어 형식(initial_pose_x/y/a)은 인식되지 않아 모두 (0,0,0)으로 초기화됨.
+    initial_pose.x:      ${initial_pose_x}
+    initial_pose.y:      ${initial_pose_y}
+    initial_pose.yaw:    ${initial_pose_a}
+
+    laser_model_type:          likelihood_field
+    laser_max_range:           8.0   # URDF gpu_lidar max 와 일치
+    laser_min_range:           0.12
+    max_beams:                 300
+    laser_likelihood_max_dist: 2.0    # 1.0→2.0: 맵 오차 허용 범위 확대
+    z_hit:       0.7               # 0.5→0.7: 실제 장애물 비중 증가 — 맵 불일치 흡수
+    z_short:     0.05
+    z_max:       0.05
+    z_rand:      0.2               # 0.4→0.2: 랜덤 노이즈 비중 감소
+    sigma_hit:   0.3               # 0.2→0.3: 맵 오차 허용 σ 확대
+    lambda_short: 0.1
+
+    robot_model_type: nav2_amcl::DifferentialMotionModel
+    alpha1: 0.1
+    alpha2: 0.1
+    alpha3: 0.1
+    alpha4: 0.1
+
+# ── Planner Server (global path, Smac Hybrid-A*) ─────────────────────────────
+# Hybrid-A* 선택 이유: 좁은 통로 환경에서 차량 최소 회전 반경을 경로에 강제하여
+# 실제 주행 불가능한 경로를 원천 차단. NavFn 대비 실행 가능성 대폭 향상.
+/${vehicle_id}/planner_server:
+  ros__parameters:
+    use_sim_time:    true
+    planner_plugins: ['GridBased']
+    GridBased:
+      plugin: 'nav2_smac_planner/SmacPlannerHybrid'
+
+      # 탐색 공간
+      downsample_costmap:   false   # costmap 해상도 유지 (0.05m)
+      downsampling_factor:  1
+      allow_unknown:        true    # 미탐색 영역 통과 허용
+      max_iterations:       1000000
+      max_on_approach_iterations: 1000
+      max_planning_time:    5.0     # 계획 최대 허용 시간 (s)
+
+      # 차량 운동학 — TurtleBot3 Burger 기준 (peer_1/FIT0186은 nav2_override_peer1.yaml 적용)
+      motion_model_for_search: 'REEDS_SHEPP'  # 후진 허용 (diff-drive)
+      minimum_turning_radius:  0.080           # wheel_sep/2 = 0.160/2 = 0.080m (TB3 Burger)
+      angle_quantization_bins: 72             # 헤딩 이산화: 5° 간격
+
+      # Analytic Expansion (조기 목표 연결 시도)
+      analytic_expansion_ratio:      3.5
+      analytic_expansion_max_length: 5.0  # 3.0→5.0: 긴 직선 구간에서 곡선 경로 대신 직결 우선 — 경로 최적화 개선
+
+      # 비용 페널티 튜닝
+      reverse_penalty:        1.3   # 2.1→1.3: 좁은 공간 3점 회전(전진-후진-전진) 유도 — 탈출 경로 확보
+      change_penalty:         0.0   # 전/후진 전환 페널티
+      non_straight_penalty:   1.05  # 1.20→1.05: 회전 경로 비용 완화 — 코너에서 곡선 경로 선택 용이
+      cost_penalty:           4.0   # 3.0→4.0: 플래너 장애물 기피 강화 — 충돌 예방
+      retrospective_penalty:  0.015
+
+      # 휴리스틱 캐시
+      lookup_table_size:        20.0
+      cache_obstacle_heuristic: false
+      debug_visualizations:     false
+
+      tolerance: 0.75  # 0.50→0.75: middle 목표점도 벽 근처일 수 있어 도달 허용 범위 확대
+
+# ── BT Navigator ─────────────────────────────────────────────────────────────
+# Exposes /peer_N/navigate_to_pose action (RViz2, CLI, patrol_node all use this).
+# default_nav_to_pose_bt_xml is set to a full path in autonomous_nav.launch.py.
+/${vehicle_id}/bt_navigator:
+  ros__parameters:
+    use_sim_time:      true
+    global_frame:      map
+    robot_base_frame:  ${vehicle_id}/base_link
+    odom_topic:        /${vehicle_id}/odometry/filtered
+    bt_loop_duration:  25    # 10→25ms (100Hz→40Hz): "tick rate exceeded" 경고 직접 해소
+    default_server_timeout: 20
+    plugin_lib_names:
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_compute_path_through_poses_action_bt_node
+      - nav2_follow_path_action_bt_node
+      - nav2_back_up_action_bt_node
+      - nav2_spin_action_bt_node
+      - nav2_wait_action_bt_node
+      - nav2_clear_costmap_service_bt_node
+      - nav2_is_stuck_condition_bt_node
+      - nav2_goal_reached_condition_bt_node
+      - nav2_goal_updated_condition_bt_node
+      - nav2_initial_pose_received_condition_bt_node
+      - nav2_reinitialize_global_localization_service_bt_node
+      - nav2_rate_controller_bt_node
+      - nav2_distance_traveled_condition_bt_node
+      - nav2_time_expired_condition_bt_node
+      - nav2_recovery_node_bt_node
+      - nav2_pipeline_sequence_bt_node
+      - nav2_round_robin_node_bt_node
+      - nav2_transform_available_condition_bt_node
+      - nav2_truncate_path_action_bt_node
+      - nav2_remove_passed_goals_action_bt_node
+      - nav2_navigate_through_poses_action_bt_node
+      - nav2_navigate_to_pose_action_bt_node
+      - nav2_is_path_valid_condition_bt_node
+      - nav2_globally_updated_goal_condition_bt_node
+
+# ── Controller Server (local planner, MPPI) ──────────────────────────────────
+# DWB → MPPI 교체 이유:
+#   doorway(0.70m) 통과 시 DWB 의 동적 윈도우 샘플링이 좁은 공간에서
+#   feasible trajectory 를 찾지 못해 oscillation → progress 실패.
+#   MPPI 는 다수 trajectory 를 병렬 샘플링 후 확률 가중 평균을 취하므로
+#   비볼록 비용 공간에서도 안정적으로 통로를 통과한다.
+#
+# 복구 방법 (DWB 로 되돌리기):
+#   controller_plugins 를 ['FollowPath'] 로 두고,
+#   FollowPath.plugin 을 'dwb_core::DWBLocalPlanner' 로 변경 후
+#   아래 MPPI 섹션을 주석 처리.
+/${vehicle_id}/controller_server:
+  ros__parameters:
+    use_sim_time:              true
+    controller_frequency:      10.0
+    min_x_velocity_threshold:  0.001
+    min_y_velocity_threshold:  0.001
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance:         2.0   # 0.3 → 2.0: CPU MPPI 2000샘플 계산 지연 흡수
+    progress_checker_plugins:  ['progress_checker']
+    goal_checker_plugins:      ['goal_checker']
+    controller_plugins:        ['FollowPath']
+
+    progress_checker:
+      plugin: 'nav2_controller::SimpleProgressChecker'
+      required_movement_radius: 0.10
+      movement_time_allowance:  8.0    # 15→8s: stuck 판정 단축 (15s는 고착 대기 너무 김)
+
+    goal_checker:
+      plugin: 'nav2_controller::SimpleGoalChecker'
+      # xy_goal_tolerance 0.35m:
+      #   - explore frontier: 로봇이 goal 근처 이동 후 성공 → 정상 탐색 진행 유지
+      #   - patrol waypoint: 제자리 회전 중 xy 허용 구역 이탈 방지 (0.25m이면 spin drift로 이탈)
+      #   - 코너(0.163m 접근 가능) < 0.35m → 코너도 성공 처리 유지
+      xy_goal_tolerance:  0.35   # 0.25→0.35m: spin drift 후 재진입 없이 안정 수렴
+      yaw_goal_tolerance: 0.35   # 0.30→0.35 rad (~20°): 허용 범위 소폭 확대
+      stateful: True
+
+    FollowPath:
+      # ── RotationShim: 큰 헤딩 오차 시 costmap 인식 제자리 회전 후 MPPI 위임 ────
+      # Spin(BT) 제거 대안: 장애물 감지하며 회전 → SLAM 드리프트 없음.
+      # angular_dist_threshold 이상 헤딩 오차 → RotationShim이 먼저 회전 정렬.
+      # 이하면 바로 MPPI에 위임 → 짧은 전후진 반복 없이 경로 추종.
+      plugin: 'nav2_rotation_shim_controller::RotationShimController'
+      angular_dist_threshold:      0.785   # 45°: 이상이면 회전 우선
+      forward_sampling_distance:   0.5     # 전방 0.5m 장애물 체크
+      rotate_to_heading_angular_vel: 1.40  # wz_max와 일치 (TB3 Burger)
+      max_angular_accel:           1.0   # wz_max(1.40) ÷ 1.4s — 슬립 방지하며 1.4s 내 최대 각속도 도달
+      simulate_ahead_time:         1.0
+      primary_controller: 'nav2_mppi_controller::MPPIController'
+
+      # ── MPPI 샘플링 파라미터 ──────────────────────────────────────────────
+      # model_dt = 1/controller_frequency (10Hz) = 0.1s 필수
+      time_steps:      28      # 예측 지평선 (28 × 0.10s = 2.8s)
+      model_dt:        0.10    # controller_frequency=10Hz와 일치
+      batch_size:      300     # 1000→500→300: RPi4 실차 최적화 (300×28=8400 eval/cycle, 40% 절감)
+      iteration_count: 1       # 최적화 반복 횟수 (CPU 부하 절감)
+      temperature:     0.3     # trajectory 가중치 집중도 (낮을수록 최적해 집중)
+      gamma:           0.015   # 미래 비용 할인 계수
+
+      # ── 운동학 제약 (FIT0186 기반) ──────────────────────────────────────
+      motion_model:  'DiffDrive'
+      # TB3 Burger 기준: 최대 0.22 m/s, 안전 마진 적용 → 0.20 m/s
+      # peer_1(FIT0186, 운용 상한 0.5 m/s)은 nav2_override_peer1.yaml에서 상향
+      vx_max:   0.20
+      vx_min:  -0.10   # 후진은 안전을 위해 0.10 m/s 유지
+      vy_max:   0.0    # diff-drive: 횡방향 속도 없음
+      # TB3 Burger wz 하드웨어 상한: 2.84 rad/s, 50% 적용 → 1.40 rad/s
+      # (peer_1/FIT0186: 3.45 rad/s 하드웨어 상한 → 1.70 rad/s, nav2_override_peer1.yaml)
+      wz_max:   1.40
+      # std는 반드시 max의 40~60% 이하로 설정해야 MPPI 샘플이 클램핑 없이 의미 있는
+      # 속도 공간을 탐색할 수 있음. std > max 이면 거의 모든 샘플이 ±max 에서 클램핑
+      # → 속도 그라디언트 소실 → Goal 수렴 실패 · 오버슛 · 고착
+      vx_std:   0.10   # vx_max(0.20)의 50% — 유효 속도 탐색
+
+      vy_std:   0.0
+      wz_std:   0.56   # wz_max(1.40)의 40% — 유효 탐색 유지
+
+      # ── 기타 ────────────────────────────────────────────────────────────
+      prune_distance:      0.5    # 단거리 frontier 목표 시 경로 전체 pruning 방지
+      transform_tolerance: 1.0   # TF 허용 시간차 (sim_time 점프 대응)
+      visualize:           true   # MPPI 샘플 궤적 → /<vid>/trajectories (MarkerArray) 발행
+
+      # ── Critics (비용 함수) ──────────────────────────────────────────────
+      critics:
+        - ConstraintCritic
+        - CostCritic
+        - GoalCritic
+        - GoalAngleCritic
+        - PathAlignCritic
+        - PathFollowCritic
+        - PreferForwardCritic
+        - TwirlingCritic
+
+      ConstraintCritic:
+        enabled:     true
+        cost_power:  1
+        cost_weight: 4.0
+
+      CostCritic:
+        enabled:              true
+        cost_power:           1
+        cost_weight:          6.0
+        critical_cost:        253.0
+        consider_footprint:   true
+        collision_cost:       1.0e4  # 1e6→1e4: 고착 시 MPPI가 좁은 공간 탈출 경로 탐색 가능
+        near_goal_distance:   1.0
+
+      GoalCritic:
+        enabled:               true
+        cost_power:            1
+        cost_weight:           10.0  # 5.0→8.0→10.0: 목표 수렴력 강화 — 오버슛 억제
+        threshold_to_consider: 1.5   # 1.0→1.5m: 더 먼 거리부터 감속 유도
+
+      GoalAngleCritic:
+        enabled:               true
+        cost_power:            1
+        cost_weight:           3.0
+        threshold_to_consider: 0.15
+
+      PreferForwardCritic:
+        enabled:               true
+        cost_power:            1
+        cost_weight:           2.0   # 5.0→2.0: 목표 근처 역방향 수정 허용 — 오버슛 고착 방지
+        threshold_to_consider: 0.40
+
+      PathAlignCritic:
+        enabled:                  true
+        cost_power:               1
+        cost_weight:              10.0  # 14.0→10.0: 과도한 경로 정렬 강제 완화
+        max_path_occupancy_ratio: 0.05
+        trajectory_point_step:    3
+        threshold_to_consider:    0.60  # 0.40→0.60m: 목표 근처 경로정렬 비활성 범위 확대
+        offset_from_furthest:     20
+        use_path_orientations:    false
+
+      PathFollowCritic:
+        enabled:               true
+        cost_power:            1
+        cost_weight:           5.0
+        offset_from_furthest:  5
+        # 1.4→1.0m: GoalCritic threshold(1.5m)보다 작게 — 목표 근접 시 경로추종 압력을
+        # 먼저 해제해 GoalCritic이 단독으로 수렴 제어하도록 함 (두 critic 경쟁이 오버슛 원인)
+        threshold_to_consider: 1.0
+
+      PathAngleCritic:
+        enabled:               true
+        cost_power:            1
+        cost_weight:           2.0
+        offset_from_furthest:  4
+        threshold_to_consider: 0.40
+        max_angle_to_furthest: 1.0
+        mode:                  0
+
+      TwirlingCritic:
+        enabled:               true
+        twirling_cost_power:   1
+        twirling_cost_weight:  1.5   # 5.0→1.5: 제자리 회전 억제 완화 — RotationShim과 협력
+
+# ── Global Costmap ────────────────────────────────────────────────────────────
+# Uses the shared /map from peer_1's slam_toolbox.
+/${vehicle_id}/global_costmap/global_costmap:
+  ros__parameters:
+    use_sim_time:        true
+    global_frame:        map
+    robot_base_frame:    ${vehicle_id}/base_link
+    update_frequency:    1.0
+    publish_frequency:   1.0
+    transform_tolerance: 2.0  # rtf=4 처리 지연(1.7s sim) 흡수: TF 조회 허용 여유 확대
+    # TB3 Burger footprint (peer_1/FIT0186은 nav2_override_peer1.yaml에서 덮어씀).
+    # robot_radius=0.105(외접원) 대신 폴리곤 사용: 외접원 기반이면 코너·통로 접근 불가.
+    # TB3 Burger 본체 ~138×178mm, LiDAR 포함 외접원 ≈0.105m 기준 정방형 근사.
+    # 내접원(0.105m) → 코너 최소 접근거리 0.105×√2=0.148m < tolerance(0.35m) → 도달 가능.
+    footprint: "[[0.105, 0.105], [0.105, -0.105], [-0.105, -0.105], [-0.105, 0.105]]"
+    resolution:      0.05
+    # 고정 크기 costmap: 창고(20×20m) + 여유 5m 사방.
+    # static_layer 복원 이유: gate post(x=2.0/3.0)가 obstacle_layer에만 있으면
+    # planner가 robot이 없는 시점엔 post를 모름 → 게이트 통과 경로를 post 위로 계획
+    # → MPPI 실패(Failed to make progress). static_layer로 SLAM 맵의 영구 벽 반영.
+    # track_unknown_space: false → 미탐색 영역=FREE 처리로 초기 데드락 방지.
+    width:    30
+    height:   30
+    origin_x: -15.0
+    origin_y: -15.0
+    # true: unknown 셀을 lethal(254)로 처리 → 벽 틈 unknown 구간을 플래너가 통과 불가
+    # 탐색 초기엔 unknown이 많아 경로 못 찾을 수 있으므로 false 유지
+    # (explore_lite costmap은 별도 — 이 설정은 Nav2 경로 계획에만 적용)
+    track_unknown_space: false
+    plugins: ['static_layer', 'obstacle_layer', 'inflation_layer']
+
+    static_layer:
+      plugin:                        'nav2_costmap_2d::StaticLayer'
+      # follower(peer_2/3): /map_static (스폰 전 저장된 clean 맵 — peer_1 LiDAR가 차체를
+      #   phantom wall로 오염시키기 전 시점). leader(peer_1): /map (slam_toolbox 실시간 맵).
+      # map_topic이 절대경로이므로 Node 레벨 remapping이 무시됨 → YAML에서 직접 분기 필수.
+      map_topic:                     '${map_topic}'
+      map_subscribe_transient_local: True
+      subscribe_to_updates:          True
+      enabled:                       True
+
+    obstacle_layer:
+      plugin:  'nav2_costmap_2d::ObstacleLayer'
+      enabled: True
+      observation_sources: scan keepout_cloud
+      scan:
+        topic:               /${vehicle_id}/scan
+        max_obstacle_height: 2.0
+        clearing: True
+        marking:  True
+        data_type: 'LaserScan'
+        raytrace_max_range:  7.0
+        raytrace_min_range:  0.0   # 소거는 전 범위 허용 — 오래된 장애물 빠르게 제거
+        obstacle_max_range:  6.5
+        obstacle_min_range:  0.12  # LiDAR 최소 유효 범위 — 차체 자기 반사 제거
+        inf_is_valid:        true
+      # 대시보드 금지구역 — keepout_zone_node가 /fleet/keepout_cloud로 발행
+      # clearing=False: LiDAR ray-cast 소거 없이 마킹만. 해제 시 ClearEntireCostmap 서비스 호출.
+      keepout_cloud:
+        topic:               /fleet/keepout_cloud
+        data_type:           'PointCloud2'
+        max_obstacle_height: 2.0
+        clearing:            False
+        marking:             True
+        obstacle_max_range:  200.0
+        obstacle_min_range:  0.0
+
+    inflation_layer:
+      plugin:              'nav2_costmap_2d::InflationLayer'
+      # cost_scaling_factor 5.0: 급경사 그라디언트 → 벽 근접 셀 비용이 급격히 상승.
+      # SmacHybrid cost_penalty=4.0과 함께 작용 → 플래너가 복도 중앙 경로 자연 선택.
+      cost_scaling_factor: 5.0
+      # inflation_radius 0.35m: 전역 플래너가 벽에서 최소 0.35m 이격된 경로 계획.
+      # 0.15m였을 때: 플래너 경로 벽에서 0.115m → 로컬 코스트맵 LETHAL 구역(0.165m) 안에 위치
+      # → MPPI CostCritic 페널티 1만 → "Failed to make progress" → stuck 루프.
+      # 0.35m로 변경: 경로가 로컬 LETHAL 구역 밖 → MPPI가 경로를 충분히 추종 가능.
+      # 0.70m 도어웨이: 양쪽 벽 각 0.35m = 중앙 cost ≈ 78 (LETHAL 253 미만) → 통과 가능.
+      inflation_radius:    0.35
+
+    always_send_full_costmap: True
+
+# ── Local Costmap ─────────────────────────────────────────────────────────────
+/${vehicle_id}/local_costmap/local_costmap:
+  ros__parameters:
+    use_sim_time:        true
+    global_frame:        ${vehicle_id}/odom
+    robot_base_frame:    ${vehicle_id}/base_link
+    update_frequency:    2.0    # 5.0→2.0Hz: 로컬 코스트맵 CPU 60% 절감
+    publish_frequency:   1.0    # 2.0→1.0Hz: 코스트맵 발행 부하 감소
+    transform_tolerance: 2.0  # rtf=4 처리 지연(1.7s sim) 흡수
+    rolling_window:      true
+    width:    4
+    height:   4
+    resolution: 0.05
+    # TB3 Burger footprint (peer_1/FIT0186은 nav2_override_peer1.yaml에서 덮어씀).
+    # global costmap과 동일한 폴리곤 — MPPI CostCritic.consider_footprint=true 필수.
+    # TB3 Burger 본체 외접원 ≈0.105m 기준 정방형 근사.
+    # inscribed(0.105m) + padding(0.05m) = 0.155m → 로컬 LETHAL 경계.
+    footprint: "[[0.105, 0.105], [0.105, -0.105], [-0.105, -0.105], [-0.105, 0.105]]"
+    # footprint_padding 제거: local LETHAL 경계를 0.155m→0.105m으로 축소.
+    # 0.05 padding 시 BackUp 후방 벽 0.155m 이내 → "Collision Ahead" 반복 실패.
+    plugins: ['obstacle_layer', 'inflation_layer']
+
+    obstacle_layer:
+      plugin:  'nav2_costmap_2d::ObstacleLayer'
+      enabled: True
+      observation_sources: scan peer_obstacles keepout_cloud
+      scan:
+        topic:               /${vehicle_id}/scan
+        max_obstacle_height: 2.0
+        clearing: True
+        marking:  True
+        data_type: 'LaserScan'
+        raytrace_max_range:  3.0
+        raytrace_min_range:  0.12
+        obstacle_max_range:  2.5
+        obstacle_min_range:  0.12  # 차체 자기 반사 제거 (LiDAR min_range 와 일치)
+        inf_is_valid:        true   # Inf 반사 점도 장애물로 마킹 (Gazebo GPU LiDAR 호환)
+      # 동료 차량 위치를 가상 장애물로 마킹 (peer_obstacle_node.py 발행)
+      # clearing=false: 동료 위치 소거는 rolling window 에 위임
+      peer_obstacles:
+        topic:               /${vehicle_id}/peer_obstacles
+        data_type:           'PointCloud2'
+        max_obstacle_height: 1.5
+        clearing:            False
+        marking:             True
+        obstacle_max_range:  8.0
+        obstacle_min_range:  0.0
+      # 대시보드 금지구역 (로컬 costmap에도 반영 — 로컬 플래너/BackUp 차단)
+      keepout_cloud:
+        topic:               /fleet/keepout_cloud
+        data_type:           'PointCloud2'
+        max_obstacle_height: 2.0
+        clearing:            False
+        marking:             True
+        obstacle_max_range:  200.0
+        obstacle_min_range:  0.0
+
+    inflation_layer:
+      plugin:              'nav2_costmap_2d::InflationLayer'
+      # 전역 코스트맵과 동일한 값으로 맞춤 — 플래너 계획과 MPPI 실행 간 불일치 제거.
+      cost_scaling_factor: 5.0
+      # 0.35m: 전역 코스트맵과 일치. footprint_padding 0.05m 포함 시 실질 LETHAL 경계:
+      # TB3 Burger: inscribed(0.105) + padding(0.05) = 0.155m → 로컬 LETHAL 영역.
+      # 전역 플래너 경로는 0.35m 이격 → 0.35m > 0.155m → MPPI가 LETHAL 영역 밖에서 추종 가능.
+      # peer_1(FIT0186): inscribed(0.115) + padding(0.05) = 0.165m < 0.35m → 동일하게 유효.
+      inflation_radius:    0.35
+
+    always_send_full_costmap: True
+
+# ── Behavior Server (recovery: BackUp / Spin / Wait) ─────────────────────────
+# BT navigate_to_pose_w_replanning_and_recovery.xml 의 회복 동작 제공.
+# "Starting point in lethal space" 발생 시:
+#   ClearEntireCostmap → Spin 1.57rad → Wait 5s → BackUp 0.30m 순으로 시도.
+/${vehicle_id}/behavior_server:
+  ros__parameters:
+    use_sim_time:        true
+    costmap_topic:       local_costmap/costmap_raw
+    footprint_topic:     local_costmap/published_footprint
+    cycle_frequency:     10.0
+    behavior_plugins:    ['spin', 'backup', 'wait']
+    spin:
+      plugin: 'nav2_behaviors/Spin'
+    backup:
+      plugin: 'nav2_behaviors/BackUp'
+    wait:
+      plugin: 'nav2_behaviors/Wait'
+    global_frame:        ${vehicle_id}/odom
+    robot_base_frame:    ${vehicle_id}/base_link
+    transform_tolerance: 1.0
+    simulate_ahead_time: 2.0
+    max_rotational_vel:  1.02  # +1° (1.00+0.0175)
+    min_rotational_vel:  0.42  # +1° (0.40+0.0175)
+    rotational_acc_lim:  3.2

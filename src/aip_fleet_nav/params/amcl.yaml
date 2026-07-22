@@ -1,0 +1,57 @@
+# AMCL parameters — for follower vehicles (peer_2 … peer_5).
+# ${vehicle_id} is substituted by nav_follower.launch.py at runtime.
+#
+# AMCL localises each follower on the /map published by peer_1's slam_toolbox.
+# Real-vehicle migration: identical config, set use_sim_time: false.
+
+# Fully-qualified node name required: PushRosNamespace places node at
+# /peer_N/amcl; bare "amcl:" only matches /amcl (root namespace).
+/${vehicle_id}/amcl:
+  ros__parameters:
+    use_sim_time: true
+
+    # ── Frames ──────────────────────────────────────────────────────────────
+    odom_frame_id:      ${vehicle_id}/odom
+    base_frame_id:      ${vehicle_id}/base_link
+    global_frame_id:    map
+    scan_topic:         /${vehicle_id}/scan
+
+    # ── Particle filter ─────────────────────────────────────────────────────
+    set_initial_pose: true   # use initial_pose_* params on activation (not /initialpose topic)
+    min_particles: 1000      # 500 → 1000: 초기 수렴 안정성 향상
+    max_particles: 3000      # 2000 → 3000: 복잡한 환경 대응
+    kld_err: 0.05
+    kld_z: 0.99
+    update_min_d: 0.05       # 0.10 → 0.05 m: 더 자주 갱신 (저속 추종 중 drift 방지)
+    update_min_a: 0.10       # 0.15 → 0.10 rad (~5.7°): 회전 갱신 빈도 증가
+    resample_interval: 1
+    transform_tolerance: 1.0
+    recovery_alpha_slow: 0.001
+    recovery_alpha_fast: 0.1
+    # peer_2/3 공통 중간값 (-1.5, 0.0): peer_2(y=1.0), peer_3(y=-1.0) 중점.
+    # autonomous_nav.launch.py 에서 per-vehicle 값으로 재정의되므로
+    # 이 값은 nav_follower.launch.py(Phase-2 모드) 폴백으로만 사용됨.
+    initial_pose_x: -1.5
+    initial_pose_y: 0.0
+    initial_pose_a: 0.0
+
+    # ── Laser model ─────────────────────────────────────────────────────────
+    laser_model_type: likelihood_field
+    laser_max_range: 7.5
+    laser_min_range: 0.12
+    max_beams: 300           # 180 → 300: LiDAR 1000샘플 기준 균등 추출 → 매칭 정밀도 향상
+    laser_likelihood_max_dist: 0.5   # 2.0 → 0.5 m: likelihood field 좁힘 → 모호한 수렴 방지
+    z_hit: 0.6               # 동적 피어 바디 ghost-obstacle 영향 완화
+    z_short: 0.05
+    z_max: 0.05
+    z_rand: 0.3              # 0.2 → 0.3: 이동한 피어 차량 위치 불일치 허용
+    sigma_hit: 0.15          # 0.1 → 0.15 m: 피어 바디 ghost 위치 오차 수용
+    lambda_short: 0.1
+
+    # ── Motion model (differential drive) ───────────────────────────────────
+    robot_model_type: nav2_amcl::DifferentialMotionModel
+    alpha1: 0.1   # 0.2 → 0.1: 시뮬 odometry가 실차보다 정확 → noise 줄임
+    alpha2: 0.1
+    alpha3: 0.1
+    alpha4: 0.1
+    alpha5: 0.05

@@ -1,0 +1,39 @@
+# Optional: build a single image that bundles supervisor + watchdog
+# + foxglove_bridge + rosbag2 so the whole central stack runs from one
+# container instead of several ros:humble-ros-base invocations.
+#
+# Use with:
+#   docker build -t aip/central:humble -f docker/central/Dockerfile.central .
+# and switch the relevant services in docker-compose.yml to:
+#   image: aip/central:humble
+
+FROM ros:humble-ros-base
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-colcon-common-extensions \
+    python3-rosdep \
+    ros-humble-foxglove-bridge \
+    ros-humble-twist-mux \
+    ros-humble-rosbag2-storage-mcap \
+    ros-humble-turtlesim \
+    git \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /ws
+COPY src /ws/src
+
+RUN . /opt/ros/humble/setup.sh \
+ && colcon build --symlink-install
+
+# H9: accept as build-arg so different fleets can bake different domain IDs.
+ARG ROS_DOMAIN_ID=42
+ENV ROS_DOMAIN_ID=${ROS_DOMAIN_ID}
+ENV ROS_DISCOVERY_SERVER=192.168.50.10:11811
+ENV FASTRTPS_DEFAULT_PROFILES_FILE=/opt/aip/fastdds_client_profile.xml
+
+COPY config/fastdds_client_profile.xml /opt/aip/fastdds_client_profile.xml
+
+SHELL ["/bin/bash", "-lc"]
+CMD ["bash", "-lc", "source /opt/ros/humble/setup.bash && source /ws/install/setup.bash && ros2 launch aip_fleet_bringup central.launch.py"]

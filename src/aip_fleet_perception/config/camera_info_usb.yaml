@@ -1,0 +1,43 @@
+# USB 광각 카메라 내부 파라미터 (CSI → USB 교체 시 사용)
+# 실제 카메라 교체 후 반드시 캘리브레이션 실행하여 갱신할 것
+#
+# 지원 대상: ELP 115° / Arducam 120° / AliExpress 110~120° 계열
+# calibrated: false 인 상태에서는 FOV 추정값만 사용됨
+
+image_width:  1280
+image_height:  720
+camera_name:  usb_wide_angle
+
+# 미캘리브레이션 — 110° 수평 FOV 기준 추정값
+# fx = (width/2) / tan(hfov/2) = 640 / tan(55°) = 448
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [448.0,   0.0, 640.0,
+           0.0, 448.0, 360.0,
+           0.0,   0.0,   1.0]
+
+distortion_model: plumb_bob
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.0, 0.0, 0.0, 0.0, 0.0]
+
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [448.0,   0.0, 640.0, 0.0,
+           0.0, 448.0, 360.0, 0.0,
+           0.0,   0.0,   1.0, 0.0]
+
+# 실측 FOV (캘리브레이션 후 기재)
+# hfov_deg: ~110.0
+# vfov_deg: ~75.0
+# calibrated: false

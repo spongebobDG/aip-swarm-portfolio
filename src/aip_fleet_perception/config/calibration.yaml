@@ -1,0 +1,30 @@
+# 열화상(110°) ↔ RGB(130°) 호모그래피 캘리브레이션
+#
+# 캘리브레이션 절차:
+#   ros2 run aip_fleet_perception calibration_node --ros-args -p vehicle_id:=peer_1
+#   → 화면 안내에 따라 열원을 5지점에 배치 후 Enter
+#   → 완료 시 이 파일에 자동 저장됨
+#
+# H: 열상 픽셀 (col, row) → RGB 픽셀 (u, v) 변환 호모그래피 (3×3, row-major)
+# fov_rgb_deg / fov_thermal_deg: 수평 시야각 (보정 계산 참조용)
+#
+# 미캘리브레이션 상태: identity + 단순 스케일 (FOV 비율만 적용)
+# → 캘리브레이션 후 아래 값을 교체할 것
+
+fov_rgb_deg:     130.0
+fov_thermal_deg: 110.0
+
+# 열상 해상도
+thermal_cols: 32
+thermal_rows: 24
+
+# 호모그래피 행렬 (미캘리브레이션: FOV 스케일만 적용)
+# scale = fov_thermal / fov_rgb = 110/130 = 0.846
+# offset_x = rgb_width  * (1 - scale) / 2
+# offset_y = rgb_height * (1 - scale) / 2
+# → 실제 RGB 해상도에 맞게 캘리브레이션 후 교체
+homography_thermal_to_rgb:
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+  calibrated: false   # true 로 바뀌기 전까지 FOV 비율만 사용

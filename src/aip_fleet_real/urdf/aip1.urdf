@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- aip1 차량 URDF
+     원본: SolidWorks URDF Exporter (final_agv_project_assembly_0623)
+     수정:
+       - 로봇 이름 → aip1
+       - 메시 경로 → package://aip_fleet_real/meshes/
+       - 바퀴 조인트 pitch 0 으로 수정 (SolidWorks Y→Z 변환 오차 제거)
+       - ball_caster: fixed → 스위블(Z축)+롤(Y축) 2-DOF continuous
+       - arm_joint 1~4: effort=1.5 N·m, velocity=5.0 rad/s (STS3215 사양)
+       - lidar_link: mass=0.152 kg, 원통 근사 관성 추가
+-->
+<robot name="aip1">
+
+  <!-- ══════════════════════════════════════════════
+       BASE FOOTPRINT (지면 기준점 — ROS 표준)
+       wheel_radius(60mm) - wheel_joint_z(10.662mm) = 49.338mm 위에 base_link
+  ══════════════════════════════════════════════ -->
+  <link name="base_footprint" />
+
+  <joint name="base_footprint_joint" type="fixed">
+    <origin xyz="0 0 0.049338" rpy="0 0 0" />
+    <parent link="base_footprint" />
+    <child link="base_link" />
+  </joint>
+
+  <!-- ══════════════════════════════════════════════
+       BASE
+  ══════════════════════════════════════════════ -->
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0.11471 -0.24707 0.04207" rpy="0 0 0" />
+      <mass value="1.4328" />
+      <inertia ixx="0.0043386" ixy="5.9699E-18" ixz="1.7556E-17"
+               iyy="0.0036089" iyz="-1.2914E-05" izz="0.0077816" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/base_link.STL" />
+      </geometry>
+      <material name=""><color rgba="0.79216 0.81961 0.93333 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- ══════════════════════════════════════════════
+       바퀴  (pitch 0 으로 수정)
+  ══════════════════════════════════════════════ -->
+  <link name="left_wheel_link">
+    <inertial>
+      <origin xyz="0 0 0.0225" rpy="0 0 0" />
+      <mass value="0.48669" />
+      <inertia ixx="0.00053904" ixy="0" ixz="0"
+               iyy="0.00053904" iyz="0" izz="0.00091381" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/left_wheel_link.STL" />
+      </geometry>
+      <material name=""><color rgba="0.79216 0.81961 0.93333 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/left_wheel_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="left_wheel_joint" type="continuous">
+    <!-- pitch 0.60835 → 0 수정 (SolidWorks Y→Z 변환 오차 제거)
+         axis: 0 1 0 → 0 0 1 (pitch=0 이후 local Z = parent X = 롤링 축) -->
+    <origin xyz="0.23971 -0.18877 0.010662" rpy="-1.5708 0 -1.5708" />
+    <parent link="base_link" />
+    <child link="left_wheel_link" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+  <link name="right_wheel_link">
+    <inertial>
+      <origin xyz="0 0 0.0225" rpy="0 0 0" />
+      <mass value="0.48669" />
+      <inertia ixx="0.00053904" ixy="0" ixz="0"
+               iyy="0.00053904" iyz="0" izz="0.00091381" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/right_wheel_link.STL" />
+      </geometry>
+      <material name=""><color rgba="0.79216 0.81961 0.93333 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/right_wheel_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="right_wheel_joint" type="continuous">
+    <!-- pitch -1.0729 → 0 수정 (SolidWorks Y→Z 변환 오차 제거)
+         axis: 0 1 0 → 0 0 1 (pitch=0 이후 local Z = parent X = 롤링 축) -->
+    <origin xyz="-0.055287 -0.18877 0.010662" rpy="1.5708 0 1.5708" />
+    <parent link="base_link" />
+    <child link="right_wheel_link" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+  <!-- ══════════════════════════════════════════════
+       볼 캐스터  (fixed → 2-DOF continuous)
+       스위블(Z축 yaw) → 롤(Y축 spin) 2단 체인
+  ══════════════════════════════════════════════ -->
+  <link name="ball_caster_swivel_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.001" />
+      <inertia ixx="1E-07" ixy="0" ixz="0"
+               iyy="1E-07" iyz="0" izz="1E-07" />
+    </inertial>
+  </link>
+
+  <!-- 스위블: base_link → swivel_link (Z축 회전) -->
+  <joint name="ball_caster_joint" type="continuous">
+    <origin xyz="0.11471 -0.43777 -0.033338" rpy="1.5708 0 0" />
+    <parent link="base_link" />
+    <child link="ball_caster_swivel_link" />
+    <axis xyz="0 0 1" />
+  </joint>
+
+  <link name="ball_caster_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.012935" />
+      <inertia ixx="1.4959E-06" ixy="0" ixz="0"
+               iyy="1.3876E-06" iyz="0" izz="1.4959E-06" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/ball_caster_link.STL" />
+      </geometry>
+      <material name=""><color rgba="0.79216 0.81961 0.93333 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <!-- 볼 반경 17 mm -->
+        <sphere radius="0.017" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- 롤: swivel_link → ball_caster_link (Y축 회전) -->
+  <joint name="ball_caster_roll_joint" type="continuous">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="ball_caster_swivel_link" />
+    <child link="ball_caster_link" />
+    <axis xyz="0 1 0" />
+  </joint>
+
+  <!-- ══════════════════════════════════════════════
+       서보 암  (STS3215: effort=1.5 N·m, velocity=5.0 rad/s)
+  ══════════════════════════════════════════════ -->
+  <link name="arm_base_link">
+    <inertial>
+      <origin xyz="-0.012654 -0.027174 0" rpy="0 0 0" />
+      <mass value="0.10602" />
+      <inertia ixx="0.0001423" ixy="8.5082E-06" ixz="0"
+               iyy="0.00021604" iyz="0" izz="0.00015474" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_base_link.STL" />
+      </geometry>
+      <material name=""><color rgba="0.79216 0.81961 0.93333 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="arm_base_joint" type="fixed">
+    <origin xyz="0.11471 -0.19677 0.19566" rpy="1.5708 0 -1.5708" />
+    <parent link="base_link" />
+    <child link="arm_base_link" />
+  </joint>
+
+  <link name="arm_link_1">
+    <inertial>
+      <origin xyz="-0.000152 0.000717 0" rpy="0 0 0" />
+      <mass value="0.070309" />
+      <inertia ixx="2.9158E-05" ixy="4.9543E-08" ixz="0"
+               iyy="2.8672E-05" iyz="0" izz="2.3394E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_link_1.STL" />
+      </geometry>
+      <material name=""><color rgba="0.79216 0.81961 0.93333 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_link_1.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="arm_joint_1" type="revolute">
+    <!-- axis: 0 0 1(Z/파랑) → 0 1 0(Y/초록) : 수직 yaw 회전이 초록축으로 정상 동작 -->
+    <origin xyz="0 0 0" rpy="0 1.5708 0" />
+    <parent link="arm_base_link" />
+    <child link="arm_link_1" />
+    <axis xyz="0 1 0" />
+    <limit lower="-1.5708" upper="1.5708" effort="1.5" velocity="5.0" />
+  </joint>
+
+  <link name="arm_link_2">
+    <inertial>
+      <origin xyz="0.000754 0.026101 0.000371" rpy="0 0 0" />
+      <mass value="0.123000" />
+      <inertia ixx="4.4084E-05" ixy="-2.3462E-07" ixz="4.0096E-08"
+               iyy="2.9211E-04" iyz="-1.1536E-07" izz="2.9762E-04" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_link_2.STL" />
+      </geometry>
+      <material name=""><color rgba="0.79216 0.81961 0.93333 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_link_2.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="arm_joint_2" type="revolute">
+    <origin xyz="-0.025 0.031 -0.05727" rpy="1.5708 1.5708 0" />
+    <parent link="arm_link_1" />
+    <child link="arm_link_2" />
+    <axis xyz="0 1 0" />
+    <limit lower="-1.5708" upper="1.5708" effort="1.5" velocity="5.0" />
+  </joint>
+
+  <link name="arm_link_3">
+    <inertial>
+      <origin xyz="0.030352 0.001768 0.025698" rpy="0 0 0" />
+      <mass value="0.183964" />
+      <inertia ixx="7.9831E-05" ixy="-1.5612E-05" ixz="9.6635E-06"
+               iyy="4.2776E-04" iyz="5.6728E-06" izz="4.1953E-04" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_link_3.STL" />
+      </geometry>
+      <material name=""><color rgba="0.79216 0.81961 0.93333 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_link_3.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="arm_joint_3" type="revolute">
+    <origin xyz="-0.02023 0.05 -0.034" rpy="1.5708 0 0" />
+    <parent link="arm_link_2" />
+    <child link="arm_link_3" />
+    <axis xyz="0 -1 0" />
+    <limit lower="-1.5708" upper="1.5708" effort="1.5" velocity="5.0" />
+  </joint>
+
+  <link name="arm_link_4">
+    <inertial>
+      <origin xyz="0 -0.015138 -0.034062" rpy="0 0 0" />
+      <mass value="0.057290" />
+      <inertia ixx="3.5723E-05" ixy="0" ixz="0"
+               iyy="2.6107E-05" iyz="7.4854E-06" izz="2.1190E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_link_4.STL" />
+      </geometry>
+      <material name=""><color rgba="0.79216 0.81961 0.93333 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/arm_link_4.STL" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="arm_joint_4" type="revolute">
+    <!-- axis: 0 -1 0(-Y/초록) → 0 0 1(Z/파랑) : 손목 회전이 파란축으로 정상 동작 -->
+    <origin xyz="-0.0592 0 0.0505" rpy="0 0 -1.5708" />
+    <parent link="arm_link_3" />
+    <child link="arm_link_4" />
+    <axis xyz="0 0 1" />
+    <limit lower="-1.5708" upper="1.5708" effort="1.5" velocity="5.0" />
+  </joint>
+
+  <!-- ══════════════════════════════════════════════
+       LiDAR  (YDLidar TG15: 152 g, 원통 r=35mm h=40mm 근사)
+       ixx=iyy = m(3r²+h²)/12, izz = mr²/2
+  ══════════════════════════════════════════════ -->
+  <link name="lidar_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <mass value="0.152" />
+      <inertia ixx="6.68E-05" ixy="0" ixz="0"
+               iyy="6.68E-05" iyz="0" izz="9.31E-05" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="package://aip_fleet_real/meshes/lidar_link.STL" />
+      </geometry>
+      <material name=""><color rgba="1 1 1 1" /></material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <cylinder radius="0.035" length="0.040" />
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="lidar_joint" type="fixed">
+    <origin xyz="0.11471 -0.30587 0.13766" rpy="1.5708 0 0" />
+    <parent link="base_link" />
+    <child link="lidar_link" />
+  </joint>
+
+</robot>

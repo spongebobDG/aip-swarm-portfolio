@@ -1,0 +1,42 @@
+{
+  "configById": {
+    "Plot!odom": {
+      "paths": [
+        { "value": "/aip2/odom.twist.twist.linear.x", "label": "vx" },
+        { "value": "/aip2/odom.twist.twist.angular.z", "label": "wz" }
+      ]
+    },
+    "Plot!cmd_vel": {
+      "paths": [
+        { "value": "/aip2/cmd_vel.linear.x", "label": "cmd vx" },
+        { "value": "/aip2/cmd_vel.angular.z", "label": "cmd wz" }
+      ]
+    },
+    "Plot!battery": {
+      "paths": [
+        { "value": "/aip2/heartbeat.battery_pct", "label": "battery %" }
+      ],
+      "minYValue": 0,
+      "maxYValue": 100
+    },
+    "RawMessages!sensors": {
+      "topicPath": "/aip2/sensor_raw"
+    }
+  },
+  "layout": {
+    "direction": "row",
+    "first": {
+      "direction": "column",
+      "first": "Plot!odom",
+      "second": "Plot!cmd_vel",
+      "splitPercentage": 50
+    },
+    "second": {
+      "direction": "column",
+      "first": "Plot!battery",
+      "second": "RawMessages!sensors",
+      "splitPercentage": 30
+    },
+    "splitPercentage": 60
+  }
+}

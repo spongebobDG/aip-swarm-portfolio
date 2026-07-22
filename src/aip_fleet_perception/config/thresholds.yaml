@@ -1,0 +1,16 @@
+# 온도 임계값 설정 (°C)
+# patrol_monitor_node 와 central_fusion_node 공통 참조
+
+thresholds:
+  warn_temp_c:   60.0   # WARN 경보: 열화상 최고온도 초과 시 (예열 감지)
+  high_temp_c:   80.0   # HIGH 경보: 열화상 + RGB 시각 확인 시
+  fire_temp_c:  150.0   # 즉시 HIGH 경보: 시각 확인 없이도 발령
+
+# YOLOv8 탐지 신뢰도 임계값 (0.0~1.0)
+detection:
+  fire_confidence:  0.55
+  smoke_confidence: 0.50
+
+# 열화상 이상 판정 — 연속 n 프레임 이상 초과 시 발령 (오경보 방지)
+filter:
+  consecutive_frames: 3

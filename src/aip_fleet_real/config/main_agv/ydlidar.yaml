@@ -1,0 +1,27 @@
+# YDLidar TG15 — 메인 AGV (aip1) 실차용.
+# 포트: /dev/ydlidar (udev 심링크, 실체: ttyUSB0 / CP210x 512000 baud).
+# fleet_main.launch.py 에서 namespace=aip1 로 기동 → scan 토픽: /aip1/scan.
+
+/aip1/ydlidar_ros2_driver_node:
+  ros__parameters:
+    port: /dev/ydlidar
+    baudrate: 512000
+    lidar_type: 0           # ydlidar_ros2_driver 기준: 0=TOF, 1=TRIANGLE, 2=TOF_NET
+    device_type: 0          # YDLIDAR_TYPE_SERIAL
+    sample_rate: 20         # TG15 실측값 20K (9로 설정 시 "Real points > fixed points" 경고)
+    abnormal_check_count: 4
+    fixed_resolution: false
+    reversion: true
+    inverted: false
+    auto_reconnect: true
+    isSingleChannel: false
+    intensity: false
+    support_motor_dtr: true
+    angle_min: -180.0
+    angle_max: 180.0
+    range_min: 0.05         # TG15 SDK 최소값 0.05m
+    range_max: 12.0         # 실내 환경 기준 (스펙 15m)
+    frequency: 10.0
+    invalid_range_is_inf: true   # 무반사 점을 0.0(원점 가짜점) 대신 inf로 → slam/costmap이 명확히 무효처리. 매칭 신뢰도↑ (06-30: 0.0점 26% 매칭오염 확인)
+    frame_id: laser_link    # slam_toolbox.yaml base_frame 체인 끝
+    imu_topic: /imu         # IMU 미설치 — 드라이버 파라미터만 존재, 실제 사용 안 됨 (2026-06-24 확인)

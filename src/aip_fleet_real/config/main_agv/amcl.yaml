@@ -1,0 +1,71 @@
+# AMCL — 메인 AGV (aip1) 실차 "운영 모드" 위치추정.
+#
+# 용도: 사전 제작된 저장 맵(map_server) 위에서 LiDAR + odom 으로 위치를 추정한다.
+#   - 운영(미션) 단계의 기본 위치추정원. SLAM(매핑) 대비 RPi4B CPU 부하가 크게 낮다
+#     (스캔매칭/루프클로징/맵갱신 없음 → 파티클 필터만).
+#   - 맵 좌표계가 재기동마다 고정 → 저장된 웨이포인트/금지구역 좌표가 유효하게 유지됨
+#     (라이브 SLAM 은 재기동 시 맵 원점이 흔들려 미션 좌표가 깨질 수 있음).
+#
+# 매핑이 필요할 때만 SLAM 모드로 전환:
+#   ros2 launch aip_fleet_real fleet_main.launch.py localization:=slam     # 맵 제작
+#   ros2 launch aip_fleet_real fleet_main.launch.py localization:=amcl \   # 운영(기본)
+#       map_yaml:=/home/jh/aip_maps/latest_fleet_map.yaml
+#
+# 프레임 규약 (frame_prefix=aip1/ — slam_toolbox.yaml / 실제 TF 와 일치):
+#   map → aip1/odom → aip1/base_footprint → aip1/base_link → aip1/laser_link
+#   ⚠️ slam_toolbox.yaml 과 동일: odom_frame=aip1/odom, base_frame=aip1/base_footprint.
+#      (global_frame 만 prefix 없는 공유 map 루트)
+#
+# ⚠️ use_sim_time: false 고정 (실차).
+
+/aip1/amcl:
+  ros__parameters:
+    use_sim_time: false
+
+    # ── Frames ──────────────────────────────────────────────────────────────
+    odom_frame_id:   aip1/odom            # serial_bridge → TF "aip1/odom" (frame_prefix)
+    base_frame_id:   aip1/base_footprint  # RSP frame_prefix=aip1/ : "aip1/base_footprint"
+    global_frame_id: map
+    scan_topic:      /aip1/scan      # YDLidar TG15 (절대 경로)
+    tf_broadcast:    true            # map→odom TF 발행 (SLAM 대체)
+
+    # ── Particle filter (RPi4B 부하 절감용 축소 세팅) ─────────────────────────
+    # 실내 단일 차량 운영은 적은 파티클로 충분. 수렴 후 max_particles 까지 안 씀.
+    set_initial_pose: true   # initial_pose_* 로 활성화 시 초기화 (/initialpose 토픽도 수용)
+    min_particles: 400       # 시뮬(1000) 대비 축소 — RPi4B CPU 여유 확보
+    max_particles: 1500      # 시뮬(3000) 대비 축소
+    kld_err: 0.05
+    kld_z: 0.99
+    update_min_d: 0.10       # 10cm 이동마다 갱신 (저속 순찰엔 충분, CPU 절감)
+    update_min_a: 0.15       # ~8.6° 회전마다 갱신
+    resample_interval: 1
+    transform_tolerance: 0.5 # nav2 costmap transform_tolerance(0.5)와 정합
+    recovery_alpha_slow: 0.001
+    recovery_alpha_fast: 0.1
+
+    # 초기 추정 위치 — 차고지(원점) 기준. 운영자는 대시보드에서 /initialpose 로 재지정 가능.
+    initial_pose_x: 0.0
+    initial_pose_y: 0.0
+    initial_pose_a: 0.0
+
+    # ── Laser model ─────────────────────────────────────────────────────────
+    laser_model_type: likelihood_field
+    laser_max_range: 12.0    # TG15 — slam max_laser_range 와 동일
+    laser_min_range: 0.12
+    max_beams: 120           # 시뮬(300) 대비 축소 — AMCL 갱신당 CPU 절감(빔 균등추출)
+    laser_likelihood_max_dist: 0.5
+    z_hit: 0.8               # 정적 맵 위 운영 — ghost 보정 불필요(단일 차량)
+    z_short: 0.05
+    z_max: 0.05
+    z_rand: 0.1
+    sigma_hit: 0.12
+    lambda_short: 0.1
+
+    # ── Motion model (differential drive) ───────────────────────────────────
+    # 실차 odom 은 시뮬보다 노이즈가 크므로 alpha 를 시뮬(0.1)보다 상향.
+    robot_model_type: nav2_amcl::DifferentialMotionModel
+    alpha1: 0.2   # 회전→회전 추정 노이즈
+    alpha2: 0.2   # 병진→회전
+    alpha3: 0.2   # 병진→병진
+    alpha4: 0.2   # 회전→병진
+    alpha5: 0.1

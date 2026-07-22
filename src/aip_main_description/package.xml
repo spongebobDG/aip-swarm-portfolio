@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>aip_main_description</name>
+  <version>0.1.0</version>
+  <description>URDF description for AIP main AGV (differential drive + LiDAR + IMU).
+    Supports both simulation (ign_ros2_control) and real hardware
+    (aip_hardware plugin) via the use_sim xacro argument.
+  </description>
+  <maintainer email="dst04072@gmail.com">AIP Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>robot_state_publisher</depend>
+  <depend>xacro</depend>
+  <depend>joint_state_publisher</depend>
+
+  <!-- sim only -->
+  <depend>ign_ros2_control</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

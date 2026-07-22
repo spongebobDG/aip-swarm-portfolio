@@ -1,0 +1,53 @@
+# twist_mux — 메인 AGV (aip1) 실차용.
+# RPi4B 온보드에서 namespace=aip1 로 기동 → 상대 토픽은 /aip1/* 로 해석됨.
+# cmd_vel_out 은 fleet_main.launch.py 에서 /aip1/cmd_vel 로 remap (ESP32 모터 입력).
+# (2026-06-27 토픽 트리 /main → /aip1 통일에 맞춰 노드키/주석 정합화.)
+#
+# 우선순위 체인 (높을수록 우선) — AIP 규약 (docs/ARCHITECTURE.md):
+#   estop_lock lock (90) — supervisor ESTOP latch (발행자 준비 시 주석 해제)
+#   central          (80) — operator 수동/미션 override (dashboard 발행)
+#   fleet_coord      (50) — aip_fleet_coordinator convoy cmd
+#   stuck_escape     (15) — 고착 탈출
+#   autonomy         (10) — Nav2 (fleet_main.launch.py 에서 cmd_vel→autonomy_cmd_vel)
+#
+# ⚠️ central 슬롯 토픽명 = central_cmd_vel (aip1 배포 현실).
+#    AIP 표준은 /<ns>/override_cmd_vel 이나 aip1 은 central_cmd_vel 를 사용하며,
+#    대시보드 _VEHICLE_CMD_VEL_OVERRIDES['aip1']='/aip1/central_cmd_vel' 와
+#    supervisor.yaml vehicle_cmd_vel_overrides 가 이 토픽을 타겟한다.
+#    → 향후 표준(override_cmd_vel)으로 수렴 시 [차량 twist_mux + 대시보드 오버라이드 +
+#      supervisor.yaml] 를 동시에 변경할 것. (여기만 바꾸면 수동제어 경로가 끊김)
+/aip1/twist_mux:
+  ros__parameters:
+    use_sim_time: false
+    topics:
+      central:
+        topic: central_cmd_vel
+        timeout: 0.5
+        priority: 80
+      fleet_coord:
+        topic: coord_cmd_vel
+        timeout: 0.5
+        priority: 50
+      stuck_escape:
+        topic: stuck_escape_cmd_vel
+        timeout: 0.3
+        priority: 15
+      autonomy:
+        topic: autonomy_cmd_vel
+        timeout: 0.5
+        priority: 10
+    # ── ESTOP 래치 (priority 90) — 준비됨, 실차 검증 후 활성화 ──────────────────
+    # ⚠️ 현재 비활성: estop 은 0속도 1회 발행(central 80)뿐이라 Nav2 상시 가동 중엔
+    #    0.5s 후 autonomy 가 재개될 수 있다(래치 아님). 아래 락을 켜면 priority-90
+    #    으로 모든 모션을 차단(래치)한다. supervisor_node 가 estop_lock(True/False)을
+    #    이미 발행하므로(코드 확인됨) 활성화 준비는 끝났다.
+    # 활성화 절차(실차에서 supervisor 가동 확인 후):
+    #   ① 중앙 스택 기동 → `ros2 topic echo /aip1/estop_lock` 가 평상시 False 인지 확인
+    #      (False 가 안 오면 활성화 금지 — 항상 locked 되어 차량이 안 움직임).
+    #   ② 아래 locks 블록 주석 해제 후 차량 twist_mux 재기동.
+    #   ③ 검증: 평상 주행 OK → 대시보드 ESTOP → 즉시·지속 정지 → 해제(CLEAR) 후 재개.
+    # locks:
+    #   estop_lock:
+    #     topic: estop_lock
+    #     timeout: 0.5
+    #     priority: 90

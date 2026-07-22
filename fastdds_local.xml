@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+    <profiles>
+        <!-- WSL2 안정화: 공유메모리(SHM) 전송을 끄고 UDP 만 사용한다.
+             "RTPS_TRANSPORT_SHM Error ... open_and_lock_file failed" 의 원천 제거.
+             (WSL2 는 /dev/shm 권한·크기 문제로 SHM 락이 자주 stale 상태가 됨)
+
+             ⚠ 빈 <metatrafficMulticastLocatorList/> 같은 self-closing locator 태그는
+             FastDDS XML 파서가 "without content" 로 거부하므로 넣지 않는다.
+             transport 만 UDP 로 강제하고 discovery 는 기본값(도메인 격리)에 맡긴다. -->
+        <transport_descriptors>
+            <transport_descriptor>
+                <transport_id>udp_only</transport_id>
+                <type>UDPv4</type>
+            </transport_descriptor>
+        </transport_descriptors>
+        <participant profile_name="default_profile" is_default_profile="true">
+            <rtps>
+                <userTransports>
+                    <transport_id>udp_only</transport_id>
+                </userTransports>
+                <useBuiltinTransports>false</useBuiltinTransports>
+            </rtps>
+        </participant>
+    </profiles>
+</dds>

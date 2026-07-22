@@ -1,0 +1,69 @@
+# heat_sources.yaml — 시뮬 열원 정의
+#
+# fleet_world.sdf 의 heat_source_* 모델과 위치가 일치해야 함.
+# sim_thermal_node.py 와 scenario_manager_node.py 가 이 파일을 공유 참조.
+#
+# 온도 단위: °C  /  radius_m: 열 확산 반경 (멀수록 온도 감쇠)
+# scenario 필드: 이 열원이 활성화되는 시나리오 목록
+
+heat_sources:
+
+  panel:
+    id: panel
+    model_name: heat_source_panel
+    position: [7.0, 2.0, 0.5]    # map 프레임 (x, y, z)
+    radius_m: 0.4
+    scenarios:
+      OVERHEATING: 65.0           # 시나리오별 기준 온도 (°C)
+      PREFIRE:     90.0
+      FIRE:        55.0           # 화재 중심은 fire 열원
+      PROGRESSIVE: 30.0           # 시작 온도 (시간에 따라 상승)
+      MULTI_HAZARD: 70.0
+
+  machine:
+    id: machine
+    model_name: heat_source_machine
+    position: [5.5, 4.5, 0.3]
+    radius_m: 0.5
+    scenarios:
+      OVERHEATING: 55.0
+      PREFIRE:     75.0
+      MULTI_HAZARD: 85.0
+
+  fire:
+    id: fire
+    model_name: heat_source_fire
+    position: [2.0, 7.5, 0.1]
+    radius_m: 0.8
+    scenarios:
+      FIRE:         200.0
+      PREFIRE:       95.0
+
+  shelf:
+    id: shelf
+    model_name: heat_source_shelf
+    position: [-2.0, 6.0, 1.2]
+    radius_m: 0.3
+    scenarios:
+      MULTI_HAZARD: 80.0
+      FIRE:         160.0
+
+# 시나리오 정의
+scenarios:
+  NORMAL:       {description: "정상 순찰, 열원 없음 (배경 25°C)"}
+  OVERHEATING:  {description: "전기 패널 과열 (WARN 수준, 60~70°C)"}
+  PREFIRE:      {description: "화재 전조 — 고온 + 연기 시각 단서 (HIGH 예상)"}
+  FIRE:         {description: "화재 발생 — 200°C+ 즉시 HIGH"}
+  PROGRESSIVE:  {description: "패널 온도 점진 상승 (30→200°C, 약 3분)"}
+  MULTI_HAZARD: {description: "다중 열원 동시 발생"}
+
+# 물리 파라미터
+physics:
+  ambient_temp_c:   25.0   # 배경 온도
+  ambient_noise_sd:  0.5   # 배경 노이즈 표준편차 (°C)
+  sensor_noise_sd:   0.3   # MLX90640 측정 노이즈 (°C)
+  fov_h_deg:       110.0   # 열화상 수평 시야각
+  fov_v_deg:        75.0   # 열화상 수직 시야각
+  thermal_cols:     32
+  thermal_rows:     24
+  progressive_rate_c_per_s: 1.0   # PROGRESSIVE 온도 상승 속도

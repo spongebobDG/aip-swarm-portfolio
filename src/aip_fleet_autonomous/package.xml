@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>aip_fleet_autonomous</name>
+  <version>0.1.0</version>
+  <description>Independent autonomous navigation for AIP fleet peers.
+
+  Each follower vehicle gets a full Nav2 stack (AMCL + NavFn planner +
+  DWB controller + BT navigator) and can receive goals independently via:
+    1. RViz2 2D Goal Pose → /peer_N/navigate_to_pose action
+    2. CLI: ros2 action send_goal /peer_N/navigate_to_pose ...
+    3. patrol_node: autonomous waypoint cycling
+
+  V-formation following is preserved in aip_fleet_coordinator.
+  </description>
+  <maintainer email="aip@example.com">AIP Team</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>nav2_msgs</depend>
+  <depend>action_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>tf2_ros</depend>
+
+  <exec_depend>nav2_amcl</exec_depend>
+  <exec_depend>nav2_planner</exec_depend>
+  <exec_depend>nav2_controller</exec_depend>
+  <exec_depend>nav2_bt_navigator</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>nav2_navfn_planner</exec_depend>
+  <exec_depend>nav2_smac_planner</exec_depend>
+  <exec_depend>dwb_core</exec_depend>
+  <exec_depend>nav2_costmap_2d</exec_depend>
+  <exec_depend>twist_mux</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>aip_fleet_bringup</exec_depend>
+  <!-- aip_fleet_gazebo / aip_fleet_nav / aip_fleet_perception are launch-time
+       deps only (no Python import). Excluded from CI to avoid Gazebo build. -->
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

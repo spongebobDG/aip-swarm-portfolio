@@ -1,0 +1,61 @@
+# slam_toolbox online async SLAM — for the leader vehicle (peer_1).
+# Frame IDs are templated: ${vehicle_id} is substituted by slam_leader.launch.py
+# at runtime via Python string replace before writing to a temp file.
+#
+# Real-vehicle migration: identical config, just set use_sim_time: false.
+
+# Fully-qualified node name required: Node(namespace=vid) places the node at
+# /peer_1/slam_toolbox; bare "slam_toolbox:" only matches /slam_toolbox (root ns).
+/${vehicle_id}/slam_toolbox:
+  ros__parameters:
+
+    # ── Frames ──────────────────────────────────────────────────────────────
+    odom_frame:  ${vehicle_id}/odom
+    base_frame:  ${vehicle_id}/base_link
+    map_frame:   map
+    scan_topic:  /${vehicle_id}/scan
+
+    # ── Mode ────────────────────────────────────────────────────────────────
+    mode: mapping          # online_async mapping
+    use_sim_time: true     # set false for real robot
+    transform_timeout: 3.0  # GUI 모드 초기화 시 EKF TF 점프 대응: 0.5 → 3.0
+    tf_buffer_duration: 30.0
+
+    # ── Map update ──────────────────────────────────────────────────────────
+    resolution: 0.05
+    minimum_laser_range: 0.10  # URDF gpu_lidar min_range 와 일치 — 경고 제거
+    max_laser_range: 8.0   # URDF gpu_lidar max(8m) 와 일치 — 코너 탐색 커버리지 향상
+    throttle_scans: 2      # 10Hz LiDAR → 5Hz 처리: SLAM CPU 50% 절감, TF 발행 빈도 감소
+    minimum_travel_distance: 0.08   # 0.05→0.08: 노드 간격 증가 → 스캔 겹침 확대 → 벽 공백 축소
+    minimum_travel_heading: 0.35   # 0.18→0.35 (약 20°): 회전 중 맵 업데이트 빈도 억제 → 드리프트 감소
+    # 탐색 중 RViz 맵 실시간 반영 및 map_readiness_node 갱신 주기 단축.
+    # AMCL은 탐색 완료 후 시작 → 그 시점엔 맵 변화가 거의 없으므로 5s 허용.
+    map_update_interval: 5.0
+
+    # ── Loop closure ────────────────────────────────────────────────────────
+    do_loop_closing: true
+    loop_search_space_dimension: 8.0
+    loop_match_minimum_chain_size: 10
+    loop_match_maximum_variance_coarse: 3.0
+    loop_match_minimum_response_coarse: 0.50   # 0.35→0.50: 약한 루프 클로저 거부 — 오정합 맵 왜곡 방지
+    loop_match_minimum_response_fine:   0.60   # 0.45→0.60: 정밀 매칭 임계값 강화
+    # 루프 클로저 시 Ceres solver 스레드 수 제한.
+    # 기본값(50→16 클램핑)은 전체 CPU를 독점 → ros_gz_bridge CPU 기아 →
+    # 라이다 스캔 드롭 → RViz 갱신 중단 + MPPI 경로 계산 실패.
+    # 8로 제한하면 나머지 8코어를 EKF·브리지·컨트롤러에 확보.
+    num_threads: 8
+
+    # ── Scan matcher ────────────────────────────────────────────────────────
+    distance_variance_penalty: 0.9    # 0.5→0.9: odom 예측과 거리 차이 클수록 강하게 패널티
+    angle_variance_penalty: 3.0       # 1.5→3.0: 제자리 회전 슬립 각도 오차 매칭 강력 거부
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.349
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.9
+    minimum_distance_penalty: 0.5
+    use_response_expansion: true
+
+    # ── Serialisation ───────────────────────────────────────────────────────
+    # map_file_name 미지정 → 이전 세션 맵 로드 시도 없음 (ERROR 메시지 억제)
+    # 지정 시 /tmp/fleet_map.data가 없으면 non-fatal ERROR가 뜨지만 정상 동작함
+    map_start_pose: [0.0, 0.0, 0.0]

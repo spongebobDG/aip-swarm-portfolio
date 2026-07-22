@@ -1,0 +1,22 @@
+[Unit]
+Description=AIP vehicle status UDP reporter (cpu telemetry -> central dashboard overlay)
+After=network-online.target
+
+[Service]
+Type=simple
+# 차량별로 AIP_VEHICLE_ID 만 바꿔서 배포 (aip1/aip2/aip3).
+Environment=AIP_VEHICLE_ID=aip1
+Environment=AIP_CENTRAL_HOST=192.168.0.10
+Environment=AIP_UDP_STATUS_PORT=19052
+# 19051 어댑터로도 송신 → 중앙(same-host) FleetHeartbeat 재발행으로 online 안정화
+# (cross-machine native heartbeat 혼잡 우회 → watchdog estop 깜빡임 방지). 네이티브
+# FleetHeartbeat 차량(aip2/aip3)도 동일 타입이라 무해.
+Environment=AIP_UDP_ADAPTER_PORT=19051
+# 2Hz: heartbeat_timeout(3.5s) 대비 신선도 마진 확보 (혼잡 시 일부 유실 허용).
+Environment=AIP_STATUS_HZ=2.0
+ExecStart=/usr/bin/python3 %h/aip_status_udp.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

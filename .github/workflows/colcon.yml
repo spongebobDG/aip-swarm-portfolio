@@ -1,0 +1,93 @@
+name: colcon build & test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    container:
+      image: ros:humble-ros-base
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install apt dependencies
+        run: |
+          apt-get update -q
+          apt-get install -y --no-install-recommends \
+            python3-pip \
+            python3-pytest \
+            python3-colcon-common-extensions \
+            ros-humble-rmw-fastrtps-cpp \
+            ros-humble-rosidl-default-generators \
+            ros-humble-geometry-msgs \
+            ros-humble-nav-msgs \
+            ros-humble-sensor-msgs \
+            ros-humble-std-msgs \
+            ros-humble-tf2-ros \
+            ros-humble-tf2-geometry-msgs \
+            ros-humble-cv-bridge \
+            ros-humble-twist-mux \
+            ros-humble-nav2-msgs \
+            ros-humble-action-msgs
+
+      - name: Install Python test dependencies
+        # pytest 9.x changed pytest_pycollect_makemodule hook signature;
+        # ros-humble launch_testing still uses the old (path, parent) form → pin <9.
+        run: pip3 install "pytest-timeout" "pytest>=7.0,<9"
+
+      # Packages that require Gazebo Ignition, ign_ros2_control, or npm
+      # are excluded from CI — they are validated in the local sim environment.
+      # Excluded: aip_fleet_gazebo, aip_fleet_nav, aip_main_description,
+      #           aip_fleet_foxglove_panels
+      # aip_fleet_autonomous: Python-only (no Gazebo build dep) — included.
+      #   exec_depends on Nav2 binaries are runtime-only and not checked here.
+      - name: Build (msgs first, then remaining packages)
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          colcon build \
+            --symlink-install \
+            --packages-select aip_fleet_msgs
+          source install/setup.bash
+          colcon build \
+            --symlink-install \
+            --packages-select \
+              aip_fleet_supervisor \
+              aip_fleet_coordinator \
+              aip_fleet_sim \
+              aip_fleet_telemetry \
+              aip_fleet_bringup \
+              aip_fleet_autonomous
+
+      - name: Test (supervisor + sim unit tests)
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          colcon test \
+            --packages-select aip_fleet_supervisor aip_fleet_sim \
+            --event-handlers console_direct+
+          colcon test-result --verbose
+
+      - name: Verify patrol plan YAML syntax
+        shell: bash
+        run: |
+          source /opt/ros/humble/setup.bash
+          source install/setup.bash
+          python3 - << 'EOF'
+          import yaml, sys
+          path = 'src/aip_fleet_autonomous/config/patrol_plan_template.yaml'
+          with open(path) as f:
+              data = yaml.safe_load(f)
+          assert isinstance(data, dict), "루트가 dict 여야 함"
+          for vid, wps in data.items():
+              assert isinstance(wps, list), f"{vid}: 웨이포인트 목록이 list 여야 함"
+              for wp in wps:
+                  assert len(wp) == 3, f"{vid}: 각 웨이포인트는 [x,y,yaw_deg] 3원소"
+          print(f"OK: {path} — {len(data)} 차량, {sum(len(v) for v in data.values())} 웨이포인트")
+          EOF

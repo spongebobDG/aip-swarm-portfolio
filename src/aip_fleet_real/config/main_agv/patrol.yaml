@@ -1,0 +1,26 @@
+# patrol_node — 메인 AGV (main) 순찰 웨이포인트.
+#
+# ⚠️ 이 파일의 waypoints 는 PLACEHOLDER 입니다.
+#    실제 운용 환경에서 SLAM 맵을 생성한 뒤 RViz 또는 ros2 topic echo /aip1/odom 으로
+#    좌표를 확인하고 아래 값을 교체하세요.
+#
+# 형식: [x1, y1, yaw1_deg, x2, y2, yaw2_deg, ...]
+#   yaw: 0°=+x축(동쪽), 90°=+y축(북쪽), -90°=남쪽, 180°=서쪽
+#
+# 순서: start_delay_sec 이후 waypoints 를 순환. loop_patrol: true 이면 무한 반복.
+#
+# 예시 좌표 (3×3m 실내 공간 순환, 맵 확인 후 교체):
+#   출발점 (0,0) → (2,0) → (2,2) → (0,2) → (0,0) 직사각형 순찰
+
+/aip1/patrol_node:
+  ros__parameters:
+    vehicle_id: aip1
+    loop_patrol: true
+    start_delay_sec: 10.0      # Nav2 활성화 대기 여유 (launch 내 timer 6s + 4s)
+    waypoints:
+      # [x, y, yaw_deg] × N 웨이포인트 (map 좌표계)
+      # ⚠️ PLACEHOLDER — 운용 환경 맵 생성 후 실좌표로 교체 필수
+      [2.0, 0.0, 90.0,
+       2.0, 2.0, 180.0,
+       0.0, 2.0, -90.0,
+       0.0, 0.0, 0.0]

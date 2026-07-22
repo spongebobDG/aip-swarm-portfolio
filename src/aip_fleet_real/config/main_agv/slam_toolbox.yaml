@@ -1,0 +1,73 @@
+# slam_toolbox — 메인 AGV (aip1) 실차 매핑.
+# 2026-06-30: 기존 자체검증 설정(aip_ws/aip_slam/config/slam_toolbox.yaml)의 매칭 파라미터 풀세트를
+#   도입 — 매칭 신뢰도↓로 인한 map→odom 역스냅(맵 오염) 해소가 목적.
+# 우리 배포 특성(네임스페이스 aip1/, frame_prefix, 원격 SLAM over wifi)만 우리 값 유지.
+# 차량 스펙: 바퀴 간격 290mm, 반경 60mm, 차체 300×230mm. YDLidar TG15: 0.12~15m, 10Hz, 360°.
+
+/aip1/slam_toolbox:
+  ros__parameters:
+    # ── 솔버 (검증된 Ceres — 기본 솔버보다 견고한 스캔매칭) ──
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: None
+
+    mode: mapping
+    use_sim_time: false
+
+    # ── 프레임/토픽 (우리 네임스페이스·frame_prefix) ──
+    odom_frame:  aip1/odom            # serial_bridge → "aip1/odom"
+    base_frame:  aip1/base_footprint  # RSP frame_prefix=aip1/
+    map_frame:   map                  # 공유 글로벌 맵 루트
+    scan_topic:  /aip1/scan_deskewed  # scan_deskew_node가 모션 왜곡 보정+무효점 정리한 스캔 (원본 /aip1/scan)
+
+    # ── 거리/해상도 ── ⚠️ 파라미터명은 'min_laser_range' (이전 'minimum_laser_range'는 미인식→0.0 무시됨)
+    resolution: 0.05
+    min_laser_range: 0.1              # 0.1m 미만(=ydlidar no-return 0.0)을 slam 이 자체 무효처리
+    max_laser_range: 12.0
+
+    # ── 원격 SLAM over wifi: TF 도착 지연 흡수 (우리 배포 특성, aip_slam 로컬값보다 여유) ──
+    transform_timeout: 1.0
+    tf_buffer_duration: 30.0
+    transform_publish_period: 0.02    # 50Hz TF 발행 (부드러운 map→odom)
+    map_update_interval: 1.0
+    minimum_time_interval: 0.2
+    throttle_scans: 1                 # 중앙 16코어 — 전 스캔 처리
+    num_threads: 4
+
+    # ── 움직임 임계 (검증값) ──
+    use_scan_matching: true
+    use_scan_barycenter: true
+    minimum_travel_distance: 0.2
+    minimum_travel_heading: 0.1     # 선회 중 갱신 조밀화(11.5°→5.7°) — 회전 dead-reckon 누적·발산 억제
+    scan_buffer_size: 10
+    scan_buffer_maximum_scan_distance: 12.5
+    link_match_minimum_response_fine: 0.15
+    link_scan_maximum_distance: 1.5
+    stack_size_to_use: 40000000
+
+    # ── 루프 클로징 (검증된 튜닝) ──
+    do_loop_closing: true
+    loop_search_maximum_distance: 3.0
+    loop_match_minimum_chain_size: 10
+    loop_match_maximum_variance_coarse: 3.0
+    loop_match_minimum_response_coarse: 0.35
+    loop_match_minimum_response_fine: 0.45
+
+    # ── 상관(correlation) 스캔매칭 파라미터 (검증값 — 매칭 신뢰도 핵심) ──
+    correlation_search_space_dimension: 0.5
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.1
+    loop_search_space_dimension: 8.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+    distance_variance_penalty: 0.5
+    angle_variance_penalty: 1.0
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.349
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.9
+    minimum_distance_penalty: 0.5
+    use_response_expansion: true

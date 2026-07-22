@@ -1,0 +1,40 @@
+# twist_mux priority configuration for every AIP fleet vehicle.
+#
+# Usage: load this with ros2 run twist_mux twist_mux --ros-args --params-file
+#        after remapping cmd_vel_out to the vehicle's actual input (e.g. /aip1/cmd_vel).
+#
+# The vehicle namespace prefix (/aip1, /aip2, /aip3) is applied at launch time
+# via group / PushRosNamespace; the topic fields here stay relative.
+#
+# Priority ordering (higher wins):
+#   100 hw_estop      - hardware emergency stop signal (bumper / physical switch)
+#    80 central       - operator override from central PC / Foxglove panel
+#    50 fleet_coord   - coordinated swarm command from supervisor
+#    10 autonomy      - local autonomy / SLAM planner output
+
+twist_mux:
+  ros__parameters:
+    topics:
+      hw_estop:
+        topic: hw_estop_cmd
+        timeout: 0.5
+        priority: 100
+      central:
+        topic: override_cmd_vel
+        timeout: 1.0
+        priority: 80
+      fleet_coord:
+        topic: coord_cmd_vel
+        timeout: 1.0
+        priority: 50
+      autonomy:
+        topic: auto_cmd_vel
+        timeout: 0.5
+        priority: 10
+
+    locks:
+      # Supervisor can assert an estop lock that masks every topic below priority 90.
+      estop_lock:
+        topic: estop_lock
+        timeout: 0.0
+        priority: 90

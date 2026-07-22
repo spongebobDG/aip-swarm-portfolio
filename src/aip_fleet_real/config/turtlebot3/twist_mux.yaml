@@ -1,0 +1,41 @@
+# twist_mux — TurtleBot3 Burger (aip2).
+# namespace=aip2 로 기동되므로 상대 토픽명이 /aip2/* 로 해석됨.
+# cmd_vel_out 은 launch 에서 cmd_vel 로 remap → /aip2/cmd_vel (turtlebot3_node 입력).
+#
+# 우선순위 체인 (높을수록 우선) — AIP 규약(docs/ARCHITECTURE.md):
+#   estop_lock lock (90) — supervisor ESTOP latch (발행자 준비 시 주석 해제)
+#   central          (80) — operator override_cmd_vel
+#   fleet_coord      (50) — aip_fleet_coordinator convoy cmd
+#   stuck_escape     (15) — 고착 탈출
+#   autonomy         (10) — Nav2 (turtlebot3.launch.py 에서 cmd_vel→autonomy_cmd_vel)
+/aip2/twist_mux:
+  ros__parameters:
+    use_sim_time: false
+    topics:
+      central:
+        topic: override_cmd_vel
+        timeout: 0.5
+        priority: 80
+      fleet_coord:
+        topic: coord_cmd_vel
+        timeout: 0.5
+        priority: 50
+      stuck_escape:
+        topic: stuck_escape_cmd_vel
+        timeout: 0.3
+        priority: 15
+      autonomy:
+        topic: autonomy_cmd_vel
+        timeout: 0.5
+        priority: 10
+    # ── ESTOP 래치 (priority 90) — 준비됨, 실차 검증 후 활성화 ──────────────────
+    # ⚠️ 현재 비활성: estop 은 0속도 1회뿐이라 Nav2 가동 중엔 0.5s 후 재개될 수 있다.
+    #    아래 락을 켜면 priority-90 으로 전 모션 차단(래치). supervisor 가 estop_lock 을
+    #    이미 발행하므로 준비 완료. (main_agv/twist_mux.yaml 과 동일 절차)
+    # 활성화: ① `ros2 topic echo /aip2/estop_lock` 평상 False 확인 → ② 주석 해제·재기동
+    #         → ③ 주행→ESTOP 즉시·지속 정지→CLEAR 재개 검증.
+    # locks:
+    #   estop_lock:
+    #     topic: estop_lock
+    #     timeout: 0.5
+    #     priority: 90

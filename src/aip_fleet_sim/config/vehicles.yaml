@@ -1,0 +1,32 @@
+# Initial poses and per-vehicle kinematic limits for the sim fleet.
+# vehicle_id must match the namespaces used by the supervisor/watchdog.
+
+vehicles:
+  aip1:
+    initial_x: 0.0
+    initial_y: 0.0
+    initial_theta: 0.0
+    max_linear_vel: 0.8
+    max_angular_vel: 1.5
+    has_lidar: true
+    lidar_range_max: 8.0
+    lidar_num_rays: 360
+    battery_drain_per_sec: 0.02     # %/s
+
+  aip2:
+    initial_x: 1.5
+    initial_y: -1.0
+    initial_theta: 0.0
+    max_linear_vel: 0.5
+    max_angular_vel: 2.0
+    has_lidar: false
+    battery_drain_per_sec: 0.03
+
+  aip3:
+    initial_x: -1.5
+    initial_y: -1.0
+    initial_theta: 0.0
+    max_linear_vel: 0.5
+    max_angular_vel: 2.0
+    has_lidar: false
+    battery_drain_per_sec: 0.03

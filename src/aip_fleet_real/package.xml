@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>aip_fleet_real</name>
+  <version>0.1.0</version>
+  <description>
+    AIP 플릿 실차량(real hardware) 전용 bringup 패키지.
+    모노레포(aip-swarm-ws) 내에서 coordinator/autonomous/msgs 등 공용 패키지를
+    재활용하고, 실차량별 LiDAR+SLAM+Nav2+twist_mux 기동과 순찰 미션을 담당한다.
+    네임스페이스 규약: aip1(메인 AGV), aip2(TurtleBot3 Burger), aip3(자작 차량).
+    aip1 하드웨어 드라이버(YDLidar/serial_bridge/heartbeat)도 여기서 제공.
+  </description>
+  <maintainer email="aip@example.com">AIP Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- 런타임 의존: 실차 bringup 에 필요한 ROS2 패키지들 -->
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>navigation2</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>twist_mux</exec_depend>
+  <exec_depend>turtlebot3_bringup</exec_depend>
+
+  <!-- aip1 하드웨어 드라이버 의존 -->
+  <exec_depend>ydlidar_ros2_driver</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <!-- 모노레포 공용 패키지 -->
+  <exec_depend>aip_fleet_msgs</exec_depend>
+  <exec_depend>aip_fleet_autonomous</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

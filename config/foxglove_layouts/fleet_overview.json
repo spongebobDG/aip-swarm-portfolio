@@ -1,0 +1,73 @@
+{
+  "configById": {
+    "3D!fleet3d": {
+      "layers": {
+        "grid": { "layerId": "foxglove.Grid", "visible": true },
+        "aip1_pose": { "layerId": "foxglove.Scene", "topic": "/aip1/odom", "visible": true, "color": "#22d3ee" },
+        "aip2_pose": { "layerId": "foxglove.Scene", "topic": "/aip2/odom", "visible": true, "color": "#f472b6" },
+        "aip3_pose": { "layerId": "foxglove.Scene", "topic": "/aip3/odom", "visible": true, "color": "#facc15" },
+        "main_scan": { "layerId": "foxglove.PointCloud", "topic": "/aip1/scan", "visible": true }
+      },
+      "followTf": "map",
+      "followMode": "follow-none"
+    },
+    "Plot!batteries": {
+      "paths": [
+        { "value": "/fleet/status.vehicles[:]{vehicle_id==\"main\"}.battery_pct",    "label": "aip1",    "color": "#22d3ee" },
+        { "value": "/fleet/status.vehicles[:]{vehicle_id==\"aip2\"}.battery_pct", "label": "aip2", "color": "#f472b6" },
+        { "value": "/fleet/status.vehicles[:]{vehicle_id==\"aip3\"}.battery_pct", "label": "aip3", "color": "#facc15" }
+      ],
+      "minYValue": 0,
+      "maxYValue": 100,
+      "followingViewWidth": 120
+    },
+    "Table!status": {
+      "topicPath": "/fleet/status"
+    },
+    "Image!main_cam": {
+      "cameraTopic": "/aip1/camera/image_raw",
+      "synchronize": false
+    },
+    "Image!main_thermal": {
+      "cameraTopic": "/aip1/thermal/image_raw",
+      "synchronize": false
+    },
+    "aip.EStopPanel!estop": {},
+    "aip.OverridePanel!override": {
+      "defaultVehicle": "aip1"
+    }
+  },
+  "globalVariables": {},
+  "layout": {
+    "direction": "row",
+    "first": {
+      "direction": "column",
+      "first": "3D!fleet3d",
+      "second": {
+        "direction": "row",
+        "first": "Image!main_cam",
+        "second": "Image!main_thermal",
+        "splitPercentage": 50
+      },
+      "splitPercentage": 65
+    },
+    "second": {
+      "direction": "column",
+      "first": "Table!status",
+      "second": {
+        "direction": "column",
+        "first": "Plot!batteries",
+        "second": {
+          "direction": "row",
+          "first": "aip.EStopPanel!estop",
+          "second": "aip.OverridePanel!override",
+          "splitPercentage": 40
+        },
+        "splitPercentage": 55
+      },
+      "splitPercentage": 35
+    },
+    "splitPercentage": 65
+  },
+  "playbackConfig": { "speed": 1.0 }
+}

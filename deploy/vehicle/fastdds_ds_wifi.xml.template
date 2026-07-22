@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  차량 DS-client + WiFi 전용 FastDDS 프로파일 템플릿 (2026-06-28 DS 재도입).
+
+  배포 시 __VEHICLE_IP__ 를 차량 wifi IP 로 치환:
+    aip1=192.168.0.3, aip2=192.168.0.4, aip3=192.168.0.5
+
+  - discoveryProtocol=SUPER_CLIENT → 중앙 DS(192.168.0.10:11811) 경유 discovery (멀티캐스트 플러딩 제거)
+  - interfaceWhiteList=차량 wifi + 127.0.0.1 → docker0(172.17) 등 비-WiFi locator 오염 차단
+  - RemoteServer prefix 44.53.00.5f... = ROS_DISCOVERY_SERVER server id 0 의 고정 prefix
+  - 함께 ROS_DISCOVERY_SERVER=192.168.0.10:11811 env 도 설정(차량별 launch/compose/script)
+  - 5GHz 별도 서브넷 전환 시: 이 파일의 주소들 + 중앙 IP 일괄 치환 필요
+-->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>wifi_udp</transport_id>
+      <type>UDPv4</type>
+      <interfaceWhiteList>
+        <address>__VEHICLE_IP__</address>
+        <address>127.0.0.1</address>
+      </interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+  <profiles>
+    <participant profile_name="vehicle_ds_wifi" is_default_profile="true">
+      <rtps>
+        <userTransports><transport_id>wifi_udp</transport_id></userTransports>
+        <useBuiltinTransports>false</useBuiltinTransports>
+        <builtin>
+          <discovery_config>
+            <discoveryProtocol>SUPER_CLIENT</discoveryProtocol>
+            <discoveryServersList>
+              <RemoteServer prefix="44.53.00.5f.45.50.52.4f.53.49.4d.41">
+                <metatrafficUnicastLocatorList>
+                  <locator><udpv4><address>192.168.0.10</address><port>11811</port></udpv4></locator>
+                </metatrafficUnicastLocatorList>
+              </RemoteServer>
+            </discoveryServersList>
+          </discovery_config>
+        </builtin>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

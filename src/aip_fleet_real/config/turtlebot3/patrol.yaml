@@ -1,0 +1,18 @@
+# 순찰 미션 — TurtleBot3 Burger (aip2).
+# patrol_node(aip_fleet_autonomous)가 /aip2/navigate_to_pose 액션에 웨이포인트를
+# 순환 전송한다. namespace=aip2 로 기동되므로 노드 FQN /aip2/patrol_node 키 사용.
+#
+# ⚠️ waypoints 는 SLAM map 프레임 좌표다. 아래 값은 0.5m 사각형 순찰 PLACEHOLDER —
+#    실제 운용 환경의 맵 좌표로 반드시 교체할 것.
+#    형식: flat 리스트 [x1, y1, yaw1_deg,  x2, y2, yaw2_deg,  ...] (yaw 단위: 도)
+#    좌표 확인: RViz2 "Publish Point" 또는 `ros2 topic echo /aip2/amcl_pose` 등.
+/aip2/patrol_node:
+  ros__parameters:
+    vehicle_id: aip2
+    loop_patrol: true
+    # 실차 Nav2 lifecycle 활성화까지 대기(TB3 bringup+slam+nav2). 짧아도 서버 대기로 보정됨.
+    start_delay_sec: 12.0
+    waypoints: [0.5, 0.0, 0.0,
+                0.5, 0.5, 90.0,
+                0.0, 0.5, 180.0,
+                0.0, 0.0, -90.0]

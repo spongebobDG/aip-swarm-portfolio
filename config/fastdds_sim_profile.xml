@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FastDDS sim profile: Simple Discovery + UDP only (SHM 비활성화).
+  aip_central과 동일 머신에서 시뮬 실행 시 SHM 포트 충돌 방지용.
+  export FASTRTPS_DEFAULT_PROFILES_FILE=<path>/fastdds_sim_profile.xml
+-->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <transport_descriptors>
+      <transport_descriptor>
+        <transport_id>UDPv4Transport</transport_id>
+        <type>UDPv4</type>
+      </transport_descriptor>
+    </transport_descriptors>
+
+    <participant profile_name="sim_no_shm" is_default_profile="true">
+      <rtps>
+        <!-- SHM 비활성화: UDPv4만 사용. 같은 머신 내 통신은 loopback UDP로 처리. -->
+        <useBuiltinTransports>false</useBuiltinTransports>
+        <userTransports>
+          <transport_id>UDPv4Transport</transport_id>
+        </userTransports>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

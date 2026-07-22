@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FastDDS SUPER_CLIENT profile. Deploy to every non-server node
+  (main AGV, scouts, operator laptops) and set:
+    export FASTRTPS_DEFAULT_PROFILES_FILE=/opt/aip/fastdds_client_profile.xml
+    export ROS_DISCOVERY_SERVER=192.168.0.10:11811
+    export ROS_DOMAIN_ID=42
+  SUPER_CLIENT (vs CLIENT): DS pushes ALL endpoint discovery info so
+  ros2 topic list and cross-vehicle topic communication works correctly.
+  The prefix must match fastdds_discovery_server.xml.
+-->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <participant profile_name="aip_client_participant" is_default_profile="true">
+      <rtps>
+        <builtin>
+          <discovery_config>
+            <discoveryProtocol>SUPER_CLIENT</discoveryProtocol>
+            <discoveryServersList>
+              <RemoteServer prefix="44.53.00.5f.45.50.52.4f.53.49.4d.41">
+                <metatrafficUnicastLocatorList>
+                  <locator>
+                    <udpv4>
+                      <address>192.168.0.10</address>
+                      <port>11811</port>
+                    </udpv4>
+                  </locator>
+                </metatrafficUnicastLocatorList>
+              </RemoteServer>
+            </discoveryServersList>
+            <leaseDuration>
+              <sec>10</sec>
+            </leaseDuration>
+            <leaseAnnouncement>
+              <sec>3</sec>
+            </leaseAnnouncement>
+          </discovery_config>
+        </builtin>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FastDDS Discovery Server configuration for the AIP fleet.
+  Runs on the central PC (192.168.0.9) on port 11811.
+  Launch with:
+    fastdds discovery -i 0 -l 192.168.0.9 -p 11811
+  or via the docker-compose service `fastdds-ds`.
+-->
+<dds xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <profiles>
+    <participant profile_name="discovery_server_participant" is_default_profile="true">
+      <rtps>
+        <prefix>44.53.00.5f.45.50.52.4f.53.49.4d.41</prefix>
+        <builtin>
+          <discovery_config>
+            <discoveryProtocol>SERVER</discoveryProtocol>
+            <leaseDuration>
+              <sec>10</sec>
+            </leaseDuration>
+            <leaseAnnouncement>
+              <sec>3</sec>
+            </leaseAnnouncement>
+          </discovery_config>
+          <metatrafficUnicastLocatorList>
+            <locator>
+              <udpv4>
+                <address>192.168.0.9</address>
+                <port>11811</port>
+              </udpv4>
+            </locator>
+          </metatrafficUnicastLocatorList>
+        </builtin>
+      </rtps>
+    </participant>
+  </profiles>
+</dds>

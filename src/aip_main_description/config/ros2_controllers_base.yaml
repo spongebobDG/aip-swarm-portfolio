@@ -1,0 +1,19 @@
+# Base controller configuration — loaded first by gz_ros2_control plugin.
+#
+# Controller types and per-vehicle params (odom frames, wheel geometry) are
+# defined in a SECOND per-vehicle YAML (master_yaml) generated at launch time
+# by spawn_vehicle.launch.py _make_master_yaml() and passed via the URDF
+# <parameters ns_ctrl_yaml> arg.
+#
+# With types pre-defined at CM startup:
+#   - gz_ros2_control auto-loads controllers to UNCONFIGURED state
+#   - Spawner finds them "already loaded" → skips set_parameters("type")
+#   - Spawner only calls configure_controller + switch_controllers (activate)
+#   → Eliminates ros2_control 2.54 DDS race: "type param not defined" on load
+#
+# This file intentionally has NO controller type definitions — those go in
+# the per-vehicle master_yaml so per-vehicle params_file refs can be embedded.
+
+controller_manager:
+  ros__parameters:
+    update_rate: 100  # Hz

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>aip_fleet_gazebo</name>
+  <version>0.1.0</version>
+  <description>Ignition Fortress world and multi-vehicle fleet launch files.
+    Spawns N peer vehicles, bridges sensors to ROS2, and starts ros2_control.
+  </description>
+  <maintainer email="dst04072@gmail.com">AIP Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>ros_gz_sim</depend>
+  <depend>ros_gz_bridge</depend>
+  <depend>ign_ros2_control</depend>
+  <depend>aip_main_description</depend>
+  <depend>aip_fleet_msgs</depend>
+  <depend>robot_state_publisher</depend>
+  <depend>controller_manager</depend>
+  <depend>tf2_ros</depend>
+  <depend>robot_localization</depend>
+  <depend>topic_tools</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

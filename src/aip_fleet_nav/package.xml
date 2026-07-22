@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>aip_fleet_nav</name>
+  <version>0.1.0</version>
+  <description>SLAM and Nav2 launch files for multi-vehicle Ignition simulation.
+    Leader vehicle runs slam_toolbox; followers use AMCL + Nav2 local planner.
+  </description>
+  <maintainer email="dst04072@gmail.com">AIP Team</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>slam_toolbox</depend>
+  <depend>nav2_bringup</depend>
+  <depend>nav2_amcl</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
