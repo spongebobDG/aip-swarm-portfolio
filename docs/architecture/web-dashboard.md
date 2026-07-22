@@ -6,6 +6,10 @@
 
 웹관제 화면은 중앙 PC에서 ROS2 기반 fleet 상태를 확인하고, 차량별 상태/위치/지도/알림/비전 프레임을 표시하며, E-Stop, 수동 override, 목표 이동, 순찰/구역/시스템 명령을 전달하기 위한 관제 UI 역할을 한다. 코드 기준으로 메인 웹관제는 `FastAPI + WebSocket + 정적 HTML/JavaScript` 구조이고, 별도 보조 시각화로 Foxglove Studio용 React 패널이 존재한다.
 
+![현재 웹관제 화면](../images/dashboard_overview_current.jpg)
+
+현재 캡처에서는 차량 상태 목록, SLAM 지도와 주행 경로, 제어 패널, RGB 카메라 및 열화상 화면이 한 화면에 배치된 구성을 확인할 수 있다.
+
 ## 2. 확인된 파일
 
 | 구분 | 파일 위치 | 역할 | 확인 내용 | 확인 여부 |

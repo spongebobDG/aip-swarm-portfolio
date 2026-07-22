@@ -5,7 +5,7 @@ ROS2 기반 산업감시로봇 관제, 센서 연동, 서브차량 제어 흐름
 > 이 README는 로봇 SW 신입 채용담당자가 3분 안에 프로젝트 목적, 역할, 구현 범위, 한계를 확인할 수 있게 정리했습니다.  
 > 코드와 실행 자료에서 확인되는 범위만 적고, 실차 장시간 군집 주행처럼 증빙이 부족한 내용은 `확인 필요`로 분리했습니다.
 
-![AIP dashboard overview](docs/images/dashboard_overview_wide.png)
+![현재 AIP 웹관제 화면](docs/images/dashboard_overview_current.jpg)
 
 ## 1. Project Overview
 
@@ -19,7 +19,7 @@ ROS2 기반 산업감시로봇 관제, 센서 연동, 서브차량 제어 흐름
 |---|---|
 | 지원 직무 연결 | ROS2, 로봇 제어 명령 흐름, 센서 연동, 웹관제, 테스트/검증/문서화 |
 | 현재 데모 범위 | Docker sim 기준 3대 상태 표시, 지도/pose 표시, 자동 데모 주행, 수동 override/E-Stop UI |
-| 최근 재검증 | 2026-07-21 Docker sim 기동, `/fleet/status` 3대 healthy, `aip_fleet_sim` 26 tests 통과 |
+| 최근 재검증 | 2026-07-22 Docker sim 기동, `/fleet/status` 3대 healthy, supervisor/simulation 총 56 tests 통과 |
 | 내 역할 표현 | 전체 분석, ROS2 통신/웹관제/비전/서브차량 제어 흐름 통합 정리, 문서화, 시연 자료 준비 |
 | 코드에서 확인됨 | custom msg, supervisor/watchdog, dashboard server, sim vehicle/world, perception bridge/fusion, serial bridge |
 | 확인 필요 | 실차 3대 장시간 군집 주행, YOLO 현장 정확도, aip3 STS3215 driver 완성도 |
@@ -34,12 +34,23 @@ ROS2 기반 산업감시로봇 관제, 센서 연동, 서브차량 제어 흐름
 |---|---|---|
 | 순찰 영상 (5:00) | [aip_patrol.mp4](docs/videos/aip_patrol.mp4) | Git LFS 원본 |
 | 프로젝트 종합 영상 (4:44) | [aip_project_overview.mp4](docs/videos/aip_project_overview.mp4) | Git LFS 원본 |
-| 웹관제 캡처 | [docs/images/dashboard_overview_wide.png](docs/images/dashboard_overview_wide.png) | 확인됨 |
+| 현재 웹관제 화면 | [dashboard_overview_current.jpg](docs/images/dashboard_overview_current.jpg) | 사용자 제공 실화면 |
 | 웹관제 GIF | [docs/videos/dashboard_demo.gif](docs/videos/dashboard_demo.gif) | 확인됨 |
 | 포트폴리오 요약 | [PORTFOLIO_KO.md](PORTFOLIO_KO.md) | 확인됨 |
 | 프로젝트 사실 정리 | [docs/PROJECT_FACTS.md](docs/PROJECT_FACTS.md) | 확인됨 |
 | 직무 매칭 정리 | [docs/portfolio/company-fit-clobot-robotis.md](docs/portfolio/company-fit-clobot-robotis.md) | 확인됨 |
 | 면접 복습 PDF | [output/pdf/aip_clobot_interview_success_guide.pdf](output/pdf/aip_clobot_interview_success_guide.pdf) | 확인됨 |
+
+### 실물 차량 구성
+
+| 메인 차량 | 커스텀 서브 차량 |
+|---|---|
+| ![메인 차량](docs/images/main_vehicle.jpg) | ![커스텀 서브 차량](docs/images/custom_sub_vehicle.jpg) |
+| 센서·카메라 암과 LiDAR가 장착된 메인 차량 | LiDAR와 제어 보드가 장착된 커스텀 서브 차량 |
+
+![전체 차량 구성](docs/images/fleet_overview.jpg)
+
+위 사진은 실제 프로젝트 하드웨어 구성을 보여주는 면접 자료입니다. 사진의 차량 역할은 사용자 확인을 기준으로 표기했으며, 개별 차량과 `aip1/aip2/aip3` namespace의 연결은 실제 bringup 설정을 기준으로 구분합니다.
 
 ## 4. My Role
 
