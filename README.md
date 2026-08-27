@@ -5,6 +5,14 @@ ROS2 기반 산업감시로봇 관제, 센서 연동, 서브차량 제어 흐름
 > 이 README는 로봇 SW 신입 채용담당자가 3분 안에 프로젝트 목적, 역할, 구현 범위, 한계를 확인할 수 있게 정리했습니다.  
 > 코드와 실행 자료에서 확인되는 범위만 적고, 실차 장시간 군집 주행처럼 증빙이 부족한 내용은 `확인 필요`로 분리했습니다.
 
+| 구분 | 내용 |
+|---|---|
+| 기간 | 2026.04–2026.06 |
+| 구성 | 5인 팀 · K-Digital Training 최종 프로젝트 |
+| 담당 | 카메라·열화상 연동, 웹 관제·WebSocket, 서브차량 구동 흐름, 통신 계약 문서화, 시연 자료 |
+| 검증 경계 | Docker sim 3대·56 tests 통과 / 실차 3대 동시 장시간 군집 주행 미검증 |
+| 기여 설명 | [개인 기여 case study](https://github.com/spongebobDG/aip-swarm-case-study) |
+
 ![현재 AIP 웹관제 화면](docs/images/dashboard_overview_current.jpg)
 
 ## 1. Project Overview
@@ -20,7 +28,7 @@ ROS2 기반 산업감시로봇 관제, 센서 연동, 서브차량 제어 흐름
 | 지원 직무 연결 | ROS2, 로봇 제어 명령 흐름, 센서 연동, 웹관제, 테스트/검증/문서화 |
 | 현재 데모 범위 | Docker sim 기준 3대 상태 표시, 지도/pose 표시, 자동 데모 주행, 수동 override/E-Stop UI |
 | 최근 재검증 | 2026-07-22 Docker sim 기동, `/fleet/status` 3대 healthy, supervisor/simulation 총 56 tests 통과 |
-| 내 역할 표현 | 전체 분석, ROS2 통신/웹관제/비전/서브차량 제어 흐름 통합 정리, 문서화, 시연 자료 준비 |
+| 내 역할 표현 | 카메라·열화상 연동, 웹관제·WebSocket, 서브차량 구동 흐름, 통신 계약 문서화, 시연 자료 준비 |
 | 코드에서 확인됨 | custom msg, supervisor/watchdog, dashboard server, sim vehicle/world, perception bridge/fusion, serial bridge |
 | 확인 필요 | 실차 3대 장시간 군집 주행, YOLO 현장 정확도, aip3 STS3215 driver 완성도 |
 
@@ -56,11 +64,11 @@ ROS2 기반 산업감시로봇 관제, 센서 연동, 서브차량 제어 흐름
 
 | 담당 영역 | 수행 내용 | 표현 기준 |
 |---|---|---|
-| 프로젝트 분석 | 패키지, launch, ROS2 Topic/Service/Action, dashboard, perception, firmware 경로를 읽고 기능 범위를 정리 | 직접 수행 |
-| 통합 구조 정리 | `/<vehicle>/heartbeat`, `/fleet/status`, `/fleet/override`, `cmd_vel`, `estop` 중심의 데이터/제어 흐름 문서화 | 직접 수행 |
-| 웹관제 정리 | FastAPI + WebSocket + 정적 HTML/JavaScript 구조와 ROS2 bridge 흐름을 설명 가능하게 정리 | 직접 수행 |
-| 비전/열화상 흐름 정리 | Vision Pi HTTP, ROS2 image topic, thermal alert, dashboard 표시 흐름을 코드 근거로 분리 | 직접 수행 |
-| 시연 자료 준비 | Docker sim 실행 경로, 대시보드 캡처/GIF, 면접용 PDF와 docs 작성 | 직접 수행 |
+| 카메라·열화상 연동 | Vision Pi HTTP, ROS2 image topic, thermal alert와 인식 결과 처리 | 직접 수행 |
+| 웹 관제 | FastAPI + WebSocket 기반 상태·명령 연결과 화면 구성 | 직접 수행 |
+| 서브차량 구동 | scout firmware와 구동 명령 경로를 팀 ROS 2 graph에 연결 | 직접 수행 |
+| 통신 계약 문서화 | `/<vehicle>/heartbeat`, `/fleet/status`, `/fleet/override`, `cmd_vel`, `estop` 흐름 정리 | 직접 수행 |
+| 시연 자료 준비 | Docker sim 실행 경로, 대시보드 캡처/GIF와 발표 자료 준비 | 직접 수행 |
 | 팀 전체 구현 이해 | Nav2, SLAM, 실차 bringup, ESP32/firmware, TurtleBot3 연동은 코드와 문서 기준으로 설명 | 팀 프로젝트 범위 |
 | 검증 유보 | 실차 완전 군집 주행, YOLO 성능, aip3 custom driver 완성은 확정 표현하지 않음 | 확인 필요 |
 
